@@ -18,7 +18,7 @@ pip install -r requirements.txt
 ## 사용법
 
 ```bash
-python main.py
+python product_scraper.py
 ```
 
 ## 주의사항
