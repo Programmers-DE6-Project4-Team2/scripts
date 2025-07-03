@@ -24,10 +24,10 @@ def main():
     
     try:
         # 올리브영 스킨/토너 카테고리 URL (실제 URL로 수정 필요)
-        category_url = "https://www.oliveyoung.co.kr/store/display/getMCategoryList.do?dispCatNo=1000001000100130001"
+        category_url = "https://www.oliveyoung.co.kr/store/display/getMCategoryList.do?dispCatNo=100000100010013&isLoginCnt=0&aShowCnt=0&bShowCnt=0&cShowCnt=0&t_page=%EB%A1%9C%EC%BC%80%EC%9D%B4%EC%85%98_%EC%B9%B4%ED%85%8C%EA%B3%A0%EB%A6%AC%EA%B4%80&t_click=%EC%B9%B4%ED%85%8C%EA%B3%A0%EB%A6%AC%ED%83%AD_%EC%A4%91%EC%B9%B4%ED%85%8C%EA%B3%A0%EB%A6%AC&t_1st_category_type=%EB%8C%80_%EC%8A%A4%ED%82%A8%EC%BC%80%EC%96%B4&t_2nd_category_type=%EC%A4%91_%EC%8A%A4%ED%82%A8/%ED%86%A0%EB%84%88"
         
         logger.info("상품 목록 크롤링 시작...")
-        products = crawler.extract_product_list(category_url, max_pages=3)
+        products = crawler.extract_product_list(category_url)  # max_pages 제한 제거
         
         if not products:
             logger.error("상품 목록을 가져올 수 없습니다.")
