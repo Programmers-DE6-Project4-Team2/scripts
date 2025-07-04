@@ -5,11 +5,10 @@
 """
 import requests
 import json
-import csv
 import time
 import logging
 import pandas as pd
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 from fake_useragent import UserAgent
 
 
@@ -18,11 +17,36 @@ logger = logging.getLogger(__name__)
 
 
 class MusinsaReviewApiCrawler:
-    def __init__(self):
+    def __init__(
+            self, section_id: str = "231", product_page: int = 1, product_size: int = 40,
+            store_code: str = 'beauty', category_code: str = "104001", contents_id: str = '',
+            gf: str = 'A', age_band: str = 'AGE_BAND_ALL', period: str = 'REALTIME',
+            review_page_size: int = 20, review_max_pages: int = 50, sort: str = "up_cnt_desc",
+            my_filter: str = "false", has_photo: str = "false", is_experience: str = "false"
+    ):
         self.ua = UserAgent()
         self.session = requests.Session()
         self.products = None
         self.setup_session()
+
+        # ranking parameters
+        self.product_page = product_page
+        self.product_size = product_size
+        self.section_id = section_id
+        self.store_code = store_code
+        self.category_code = category_code
+        self.contents_id = contents_id
+        self.gf = gf  # 성별 필터 (All)
+        self.age_band = age_band  # 연령 필터
+        self.period = period  # 실시간
+
+        # review parameters
+        self.review_page_size = review_page_size
+        self.sort = sort
+        self.my_filter = my_filter
+        self.has_photo = has_photo
+        self.is_experience = is_experience
+        self.review_max_pages = review_max_pages
 
     def setup_session(self):
         """세션 설정"""
@@ -38,43 +62,41 @@ class MusinsaReviewApiCrawler:
         self.session.headers.update(headers)
         logger.info("세션 설정 완료")
 
-    def build_product_api_url(
-            self, page: int = 1, size: int = 40, section_id: str = "231", category_code: str = "104001"
-    ) -> str:
+    def build_product_api_url(self) -> str:
         """랭킹 페이지 API URL 생성"""
-        base_url = f"https://api.musinsa.com/api2/hm/web/v5/pans/ranking/sections/{section_id}"
+        base_url = f"https://api.musinsa.com/api2/hm/web/v5/pans/ranking/sections/{self.section_id}"
 
         params = {
-            'storeCode': 'beauty',
-            'categoryCode': category_code,
-            'contentsId': '',
-            'gf': 'A',  # 성별 필터 (All)
-            'ageBand': 'AGE_BAND_ALL',  # 연령 필터
-            'period': 'REALTIME',  # 실시간
-            'page': page,
-            'size': size
+            'storeCode': self.store_code,
+            'categoryCode': self.category_code,
+            'contentsId': self.contents_id,
+            'gf': self.gf,
+            'ageBand': self.age_band,
+            'period': self.period,
+            'page': self.product_page,
+            'size': self.product_size
         }
 
         # URL 파라미터 생성
         param_string = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{base_url}?{param_string}"
 
-    def fetch_products_api(self, page: int = 1, size: int = 40) -> Optional[Dict]:
+    def fetch_products_api(self) -> Optional[Dict]:
         """API를 통한 상품 데이터 수집"""
-        url = self.build_product_api_url(page, size)
+        url = self.build_product_api_url()
 
         try:
             logger.info(f"Ranking page API 요청: {url}")
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
             products = response.json()
-            logger.info(f"페이지 {page} API 응답 성공")
+            logger.info(f"페이지 {self.product_page} API 응답 성공")
             return products
         except requests.exceptions.RequestException as e:
-            logger.error(f"페이지 {page} API 요청 실패: {e}")
+            logger.error(f"페이지 {self.product_page} API 요청 실패: {e}")
             return None
         except json.JSONDecodeError as e:
-            logger.error(f"페이지 {page} JSON 파싱 실패: {e}")
+            logger.error(f"페이지 {self.product_page} JSON 파싱 실패: {e}")
             return None
 
     def extract_product_ids(self, products: dict) -> list:
@@ -92,31 +114,31 @@ class MusinsaReviewApiCrawler:
 
         recurse(products)
         product_ids = list(dict.fromkeys(product_ids))
-        logger.info(f"추출된 product_ids: {product_ids}")
+        logger.info(f"추출된 product_ids 갯수: {len(product_ids)}")
         return product_ids
 
     def build_review_api_url(
-            self, page: int = 0, page_size: int = 20, sort: str = "up_cnt_desc",  goods_no: str = "231",
-            my_filter: str = "false", has_photo: str = "false", is_experience: str = "false"
+            self, page: int = 0, goods_no: str = "231",
+
     ) -> str:
         """리뷰 API URL 생성"""
         base_url = "https://goods.musinsa.com/api2/review/v1/view/list"
         params = {
             "page": page,
-            "pageSize": page_size,
+            "pageSize": self.review_page_size,
             "goodsNo": goods_no,
-            "sort": sort,
+            "sort": self.sort,
             "selectedSimilarNo": goods_no,
-            "myFilter": my_filter,
-            "hasPhoto": has_photo,
-            "isExperience": is_experience
+            "myFilter": self.my_filter,
+            "hasPhoto": self.has_photo,
+            "isExperience": self.is_experience
         }
 
         # URL 파라미터 생성
         param_string = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{base_url}?{param_string}"
 
-    def get_reviews(self, product_ids: list[str], max_pages: int = 50) -> Optional[Dict]:
+    def get_reviews(self, product_ids: list[str]) -> Optional[Dict]:
         """Review 수집"""
         all_reviews = {}
 
@@ -124,11 +146,9 @@ class MusinsaReviewApiCrawler:
             logger.info(f"상품 {goods_no}의 리뷰 수집 시작")
             reviews = []
 
-            for page in range(1, max_pages + 1):  # 페이지는 1부터 시작
-                url = self.build_review_api_url(
-                    page=page, page_size=20, sort="up_cnt_desc", goods_no=goods_no,
-                    my_filter="false", has_photo="false", is_experience="false"
-                )
+            for page in range(1, self.review_max_pages + 1):  # 페이지는 1부터 시작
+                url = self.build_review_api_url(page=page, goods_no=goods_no)
+
                 try:
                     response = self.session.get(url=url, timeout=10)
                     response.raise_for_status()
@@ -190,11 +210,26 @@ class MusinsaReviewApiCrawler:
 
 def main():
     """메인 함수"""
-    review_crawler = MusinsaReviewApiCrawler()
+    review_crawler = MusinsaReviewApiCrawler(
+        section_id="231",
+        product_page=1, product_size=40,
+        store_code='beauty',
+        category_code="104001",
+        contents_id='',
+        gf='A', age_band='AGE_BAND_ALL',
+        period='REALTIME',
+
+        review_page_size=20,
+        review_max_pages=50,
+        sort="up_cnt_desc",
+        my_filter="false",
+        has_photo="false",
+        is_experience="false"
+    )
     try:
-        products = review_crawler.fetch_products_api(1, 40)
+        products = review_crawler.fetch_products_api()
         product_ids = review_crawler.extract_product_ids(products)
-        reviews = review_crawler.get_reviews(product_ids, 1)
+        reviews = review_crawler.get_reviews(product_ids)
 
         review_rows = review_crawler.flatten_reviews(reviews)
 
