@@ -24,14 +24,14 @@ def crawl_category(category_name: str, category_url: str):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_name = category_name.replace("/", "_").replace(" ", "_")
 
-        data_dir = os.path.join("data", "products")
+        data_dir = os.path.join("data", "products2")
         os.makedirs(data_dir, exist_ok=True)
 
         csv_file = os.path.join(data_dir, f"products_{safe_name}_{timestamp}.csv")
-        json_file = os.path.join(data_dir, f"products_{safe_name}_{timestamp}.json")
+        # json_file = os.path.join(data_dir, f"products_{safe_name}_{timestamp}.json")
 
         crawler.save_to_csv(products, csv_file)
-        crawler.save_to_json(products, json_file)
+        # crawler.save_to_json(products, json_file)
 
         logger.info(f"[완료] {category_name} - 총 {len(products)}개 저장")
 

@@ -4,7 +4,7 @@
 """
 import os
 from datetime import datetime
-from oliveyoung_crawler import OliveYoungCrawler
+from oliveyoung_scraper_module import OliveYoungCrawler
 import logging
 
 logging.basicConfig(
