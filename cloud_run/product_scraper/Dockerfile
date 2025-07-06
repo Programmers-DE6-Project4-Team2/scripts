@@ -21,6 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 애플리케이션 복사
 COPY . .
 
+# 환경 변수 설정
+ENV ENV=local
+
 # 환경변수 설정
 ENV DISPLAY=:99
 ENV PYTHONPATH=/app
@@ -29,4 +32,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8080
 
 # Gunicorn 서버 실행
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "main:app"]
+CMD ["python", "main.py"]
