@@ -1,18 +1,15 @@
-from flask import Flask, request, jsonify
-from oliveyoung_scraper_module import OliveYoungCrawler
-from google.cloud import storage
-import pandas as pd
 import os
 import logging
 from datetime import datetime
+import pandas as pd
+from google.cloud import storage
+from oliveyoung_scraper_module import OliveYoungProductScraper
 from dotenv import load_dotenv
 
-
+# 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 load_dotenv()
-
-app = Flask(__name__)
 
 def upload_csv_to_gcs(bucket_name: str, dataframe: pd.DataFrame, destination_blob_name: str):
     logger.info("🔄 [GCS] 업로드 시작...")
@@ -25,19 +22,18 @@ def upload_csv_to_gcs(bucket_name: str, dataframe: pd.DataFrame, destination_blo
     logger.info(f"✅ [GCS] 업로드 완료: gs://{bucket_name}/{destination_blob_name}")
     return f"gs://{bucket_name}/{destination_blob_name}"
 
-
-@app.route("/scrape", methods=["POST"])
-def scrape():
-    data = request.get_json()
-    category_url = data.get("category_url")
-    category_name = data.get("category_name", "default")
-    max_pages = int(data.get("max_pages", 1))
+def main():
+    # 환경변수 로드
+    category_url = os.getenv("CATEGORY_URL")
+    category_name = os.getenv("CATEGORY_NAME", "default")
+    max_pages = int(os.getenv("MAX_PAGES", "1"))
+    bucket_name = os.getenv("BUCKET_NAME", "de6-ez2")
 
     if not category_url:
-        return jsonify({"status": "error", "message": "category_url is required"}), 400
+        raise ValueError("CATEGORY_URL 환경변수는 필수입니다.")
 
     logger.info(f"[START] category={category_name} max_pages={max_pages}")
-    crawler = OliveYoungCrawler(headless=True)
+    crawler = OliveYoungProductScraper(headless=True)
 
     try:
         # 1. 크롤링
@@ -45,7 +41,6 @@ def scrape():
         df = pd.DataFrame(products)
 
         # 2. GCS 업로드
-        bucket_name = "de6-ez2"
         now = datetime.utcnow()
         timestamp = now.strftime("%Y%m%d_%H%M%S")
         year = now.strftime("%Y")
@@ -54,23 +49,15 @@ def scrape():
         filename = f"raw-data/olive-young/{category_name}/{year}/{month}/{day}/{category_name}_{timestamp}.csv"
         gcs_path = upload_csv_to_gcs(bucket_name, df, filename)
 
-        # 3. 응답
-        return jsonify({
-            "status": "completed",
-            "category_name": category_name,
-            "products_count": len(products),
-            "gcs_path": gcs_path
-        })
+        # 3. 완료 로그
+        logger.info(f"🎉 작업 완료: {len(products)}개 상품, 경로: {gcs_path}")
 
     except Exception as e:
         logger.exception("크롤링 도중 에러 발생")
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-        }), 500
+        raise
 
     finally:
         crawler.close()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    main()

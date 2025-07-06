@@ -4,7 +4,7 @@
 """
 import os
 from datetime import datetime
-from oliveyoung_scraper_module import OliveYoungCrawler
+from oliveyoung_scraper_module import OliveYoungProductScraper
 import logging
 
 logging.basicConfig(
@@ -20,7 +20,7 @@ def main():
         os.makedirs(data_dir)
     
     # 크롤러 초기화
-    crawler = OliveYoungCrawler(headless=True)
+    crawler = OliveYoungProductScraper(headless=True)
     
     try:
         # 올리브영 스킨/토너 카테고리 URL (실제 URL로 수정 필요)
