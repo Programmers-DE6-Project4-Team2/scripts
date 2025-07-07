@@ -14,17 +14,25 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class MusinsaApiCrawler:
-    def __init__(self):
-        self.ua = UserAgent()
-        self.session = requests.Session()
+    def __init__(
+            self,
+            section_id: str = "231", size: int = 40, category_code: str = "104001",
+            max_pages: int = 5
+    ):
         self.products = []
-        self.setup_session()
+        self.session = self._setup_session()
+        self.size = size
+        self.section_id = section_id
+        self.category_code = category_code
+        self.max_pages = max_pages
         
-    def setup_session(self):
+    def _setup_session(self) -> requests.sessions.Session:
         """세션 설정"""
+        ua = UserAgent()
         headers = {
-            'User-Agent': self.ua.random,
+            'User-Agent': ua.random,
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -32,32 +40,34 @@ class MusinsaApiCrawler:
             'Referer': 'https://www.musinsa.com/main/beauty/ranking',
             'Origin': 'https://www.musinsa.com',
         }
-        self.session.headers.update(headers)
+        session = requests.Session()
+        session.headers.update(headers)
         logger.info("세션 설정 완료")
+        return session
     
-    def build_api_url(self, page: int = 1, size: int = 40, section_id: str = "231", category_code: str = "104001") -> str:
+    def build_api_url(self, page: int = 1) -> str:
         """API URL 생성"""
         # 올바른 sections API 엔드포인트 사용
-        base_url = f"https://api.musinsa.com/api2/hm/web/v5/pans/ranking/sections/{section_id}"
+        base_url = f"https://api.musinsa.com/api2/hm/web/v5/pans/ranking/sections/{self.section_id}"
         
         params = {
             'storeCode': 'beauty',
-            'categoryCode': category_code,
+            'categoryCode': self.category_code,
             'contentsId': '',
             'gf': 'A',  # 성별 필터 (All)
             'ageBand': 'AGE_BAND_ALL',  # 연령 필터
             'period': 'REALTIME',  # 실시간
             'page': page,
-            'size': size
+            'size': self.size
         }
         
         # URL 파라미터 생성
         param_string = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{base_url}?{param_string}"
     
-    def fetch_products_api(self, page: int = 1, size: int = 40) -> Optional[Dict]:
+    def fetch_products_api(self, page: int = 1) -> Optional[Dict]:
         """API를 통한 상품 데이터 수집"""
-        url = self.build_api_url(page, size)
+        url = self.build_api_url(page)
         
         try:
             logger.info(f"API 요청: {url}")
@@ -77,14 +87,14 @@ class MusinsaApiCrawler:
             logger.error(f"페이지 {page} JSON 파싱 실패: {e}")
             return None
     
-    def crawl_all_products(self, max_pages: int = 5) -> List[Dict]:
+    def crawl_all_products(self) -> List[Dict]:
         """모든 상품 데이터 수집"""
         logger.info("무신사 뷰티 랭킹 API 크롤링 시작...")
         
         page = 1
         total_products = 0
         
-        while page <= max_pages:
+        while page <= self.max_pages:
             # API 호출
             data = self.fetch_products_api(page)
             
@@ -311,12 +321,13 @@ class MusinsaApiCrawler:
 
 def main():
     """메인 함수"""
-    crawler = MusinsaApiCrawler()
+    crawler = MusinsaApiCrawler(
+        section_id="231", size=40, category_code="104001", max_pages=5
+    )
     
     try:
         # API 크롤링 실행 (테스트용 5페이지)
-        products = crawler.crawl_all_products(max_pages=5)
-        
+        products = crawler.crawl_all_products()
         if products:
             # 결과 출력
             crawler.print_summary()
