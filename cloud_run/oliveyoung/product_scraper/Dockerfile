@@ -31,5 +31,4 @@ ENV PYTHONPATH=/app
 # 포트 오픈
 EXPOSE 8080
 
-# Gunicorn 서버 실행
-CMD ["python", "main.py"]
+ENTRYPOINT ["python", "main.py"]

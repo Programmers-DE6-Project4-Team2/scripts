@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 from datetime import datetime
 import pandas as pd
@@ -23,14 +24,21 @@ def upload_csv_to_gcs(bucket_name: str, dataframe: pd.DataFrame, destination_blo
     return f"gs://{bucket_name}/{destination_blob_name}"
 
 def main():
-    # 환경변수 로드
-    category_url = os.getenv("CATEGORY_URL")
-    category_name = os.getenv("CATEGORY_NAME", "default")
-    max_pages = int(os.getenv("MAX_PAGES", "1"))
+    # 명령행 인수 처리
+    if len(sys.argv) >= 4:
+        category_name = sys.argv[1]
+        category_url = sys.argv[2]
+        max_pages = int(sys.argv[3])
+    else:
+        # 환경변수 로드 (fallback)
+        category_url = os.getenv("CATEGORY_URL")
+        category_name = os.getenv("CATEGORY_NAME", "default")
+        max_pages = int(os.getenv("MAX_PAGES", "1"))
+
     bucket_name = os.getenv("BUCKET_NAME", "de6-ez2")
 
     if not category_url:
-        raise ValueError("CATEGORY_URL 환경변수는 필수입니다.")
+        raise ValueError("CATEGORY_URL이 필요합니다. 명령행 인수 또는 환경변수로 제공하세요.")
 
     logger.info(f"[START] category={category_name} max_pages={max_pages}")
     crawler = OliveYoungProductScraper(headless=True)
