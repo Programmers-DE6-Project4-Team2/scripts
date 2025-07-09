@@ -1,0 +1,26 @@
+# Flask 웹 프레임워크
+flask==2.3.3
+gunicorn==21.2.0
+
+# HTTP 요청 및 데이터 처리
+requests==2.31.0
+pandas==2.0.3
+numpy==1.26.4
+
+# 환경 설정
+python-dotenv==1.0.0
+
+# Google Cloud Storage
+google-cloud-storage==2.10.0
+
+# 유틸리티
+fake-useragent==1.4.0
+
+# 로깅 및 모니터링
+werkzeug==2.3.7
+
+# JSON 처리
+jsonschema==4.19.2
+
+# 날짜/시간 처리
+python-dateutil==2.8.2
