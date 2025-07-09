@@ -54,7 +54,7 @@ def main():
         year = now.strftime("%Y")
         month = now.strftime("%m")
         day = now.strftime("%d")
-        filename = f"raw-data/olive-young/{category_name}/{year}/{month}/{day}/{category_name}_{timestamp}.csv"
+        filename = f"raw-data/olive-young/products/{category_name}/{year}/{month}/{day}/{category_name}_{timestamp}.csv"
         gcs_path = upload_csv_to_gcs(bucket_name, df, filename)
 
         # 3. 완료 로그
