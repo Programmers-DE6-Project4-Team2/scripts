@@ -1,6 +1,7 @@
 import time
 import json
 import csv
+import os
 from datetime import datetime
 from typing import List, Dict, Optional
 import pandas as pd
@@ -291,6 +292,7 @@ class OliveYoungProductScraper:
                 'url': product_url,
                 'rating': rating,
                 'review_count': review_count,
+                'category': os.getenv('CATEGORY_NAME', ''),
                 'scraped_at': datetime.now().isoformat()
             }
 
