@@ -7,7 +7,7 @@ import sys
 import json
 import logging
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from oliveyoung_review_scraper_module import OliveYoungReviewScraper
 from gcs_uploader import GCSUploader
 
@@ -41,8 +41,8 @@ def scrape_reviews(product_id: str, product_url: str, max_pages: int = 1):
         scraper = OliveYoungReviewScraper()
         
         try:
-            crawling_started_at = datetime.utcnow().isoformat() + "Z"
-            crawling_date = datetime.utcnow().strftime("%Y-%m-%d")
+            crawling_started_at = datetime.now(timezone.utc).isoformat()
+            crawling_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             
             # 리뷰 데이터 크롤링
             reviews, category_name = scraper.extract_reviews_with_pagination(product_url, max_pages)
@@ -78,7 +78,7 @@ def scrape_reviews(product_id: str, product_url: str, max_pages: int = 1):
             gcs_uploader = GCSUploader()
             
             # 파일 경로 생성 (CSV 확장자로 변경)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             file_path = (
                 f"raw-data/olive-young/reviews/{product_id}/{product_id}_{now.strftime('%Y%m%d_%H%M%S')}.csv"
             )
@@ -106,7 +106,7 @@ def scrape_reviews(product_id: str, product_url: str, max_pages: int = 1):
         return {
             "status": "error",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 def main():
@@ -134,7 +134,7 @@ def main():
         print(json.dumps({
             "status": "error",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }, indent=2, ensure_ascii=False))
         sys.exit(1)
 

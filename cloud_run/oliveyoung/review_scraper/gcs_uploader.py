@@ -6,7 +6,7 @@ Google Cloud Storage 업로더
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 from google.cloud import storage
 
@@ -37,7 +37,7 @@ class GCSUploader:
             
             # 메타데이터 설정
             blob.metadata = {
-                'uploaded_at': datetime.utcnow().isoformat() + "Z",
+                'uploaded_at': datetime.now(timezone.utc).isoformat(),
                 'data_type': data.get('metadata', {}).get('data_type', 'unknown'),
                 'source': data.get('metadata', {}).get('source', 'unknown'),
                 'records_count': str(len(data.get('reviews', [])))
@@ -51,7 +51,7 @@ class GCSUploader:
                 'status': 'success',
                 'gcs_path': gcs_path,
                 'file_size': len(json_data),
-                'uploaded_at': datetime.utcnow().isoformat() + "Z"
+                'uploaded_at': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:
@@ -78,7 +78,7 @@ class GCSUploader:
             
             # 메타데이터 설정
             blob.metadata = {
-                'uploaded_at': datetime.utcnow().isoformat() + "Z",
+                'uploaded_at': datetime.now(timezone.utc).isoformat(),
                 'records_count': str(len(data)),
                 'columns': ','.join(df.columns.tolist())
             }
@@ -91,7 +91,7 @@ class GCSUploader:
                 'status': 'success',
                 'gcs_path': gcs_path,
                 'file_size': len(csv_data),
-                'uploaded_at': datetime.utcnow().isoformat() + "Z"
+                'uploaded_at': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:

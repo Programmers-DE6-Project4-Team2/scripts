@@ -5,7 +5,7 @@ oliveyoung_product_scraper.py의 Chrome 설정을 참고하여 최적화
 
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
@@ -257,7 +257,7 @@ class OliveYoungReviewScraper:
                     "purchase_type": purchase_type,
                     "page": page,
                     "helpful": helpful,
-                    "scraped_at": datetime.utcnow().isoformat() + "Z"
+                    "scraped_at": datetime.now(timezone.utc).isoformat()
                 }
                 
                 # 최소한 평점이나 리뷰 텍스트가 있어야 유효한 리뷰로 간주
