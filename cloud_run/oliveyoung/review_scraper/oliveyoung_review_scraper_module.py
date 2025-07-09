@@ -154,33 +154,45 @@ class OliveYoungReviewScraper:
         return reviews, category_name
     
     def go_to_next_page(self, current_page: int) -> bool:
-        """다음 페이지로 이동"""
+        """다음 페이지로 이동 - data-page-no 속성 기반"""
         try:
             next_page_num = current_page + 1
             
-            # 페이지 번호 직접 클릭 시도
+            # data-page-no 속성으로 페이지 번호 직접 클릭 시도
             try:
                 page_button = self.wait.until(
-                    EC.element_to_be_clickable((By.XPATH, f"//a[contains(@class, 'num') and text()='{next_page_num}']"))
+                    EC.element_to_be_clickable((By.XPATH, f"//a[@data-page-no='{next_page_num}']"))
                 )
                 self.driver.execute_script("arguments[0].click();", page_button)
-                logger.info(f"페이지 {next_page_num} 버튼 클릭 성공")
+                logger.info(f"페이지 {next_page_num} 버튼 클릭 성공 (data-page-no)")
                 time.sleep(5)
                 return True
             except:
-                logger.warning(f"페이지 {next_page_num} 버튼을 찾을 수 없습니다")
+                logger.warning(f"페이지 {next_page_num} 버튼을 찾을 수 없습니다 (data-page-no)")
             
-            # 다음 버튼 클릭 시도
+            # 텍스트로 페이지 번호 클릭 시도 (백업)
+            try:
+                page_button = self.wait.until(
+                    EC.element_to_be_clickable((By.XPATH, f"//a[text()='{next_page_num}']"))
+                )
+                self.driver.execute_script("arguments[0].click();", page_button)
+                logger.info(f"페이지 {next_page_num} 버튼 클릭 성공 (텍스트)")
+                time.sleep(5)
+                return True
+            except:
+                logger.warning(f"페이지 {next_page_num} 버튼을 찾을 수 없습니다 (텍스트)")
+            
+            # 다음 10페이지 버튼 클릭 시도 (10페이지 경계일 때)
             try:
                 next_button = self.wait.until(
-                    EC.element_to_be_clickable((By.XPATH, "//a[contains(@class, 'next')]"))
+                    EC.element_to_be_clickable((By.XPATH, "//a[contains(@class, 'next') and contains(text(), '다음')]"))
                 )
                 self.driver.execute_script("arguments[0].click();", next_button)
-                logger.info("다음 버튼 클릭 성공")
+                logger.info("다음 10페이지 버튼 클릭 성공")
                 time.sleep(5)
                 return True
             except:
-                logger.warning("다음 버튼을 찾을 수 없습니다")
+                logger.warning("다음 10페이지 버튼을 찾을 수 없습니다")
             
             logger.warning(f"페이지 {next_page_num}로 이동할 수 없습니다")
             return False
