@@ -8,13 +8,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # requirements 및 코드 복사
-COPY requirements.txt .
-COPY naver_beauty_crawler.py .
-COPY gcs_uploader.py .
-COPY categories.py .
+COPY . .
 
 # 패키지 설치
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 실행 진입점
-ENTRYPOINT ["python", "naver_beauty_crawler.py"]
+ENTRYPOINT ["python", "main.py"]

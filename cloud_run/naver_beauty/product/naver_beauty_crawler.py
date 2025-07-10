@@ -1,15 +1,12 @@
 import time
-import argparse
 import requests
 import logging
 import pandas as pd
-import os
 from datetime import datetime
 from typing import List, Dict, Optional
 from fake_useragent import UserAgent
 from gcs_uploader import upload_to_gcs
 from categories import category_dir
-from multiprocessing import Pool, cpu_count
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -135,9 +132,7 @@ class NaverShoppingCrawler:
             return
         try:
             df = pd.DataFrame(data)
-            category_folder = category_dir[category_name]["folder"]
-            filename = f"{category_folder}_{timestamp}.csv"
-            blob_path = f"raw-data/naver/{category_folder}/{timestamp}/{filename}"
+            blob_path = f"raw-data/naver/{category_name}/product/{timestamp}.csv"
 
             df_bytes = df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
             upload_to_gcs(bucket_name, df_bytes, blob_path, content_type="text/csv", from_bytes=True)
@@ -147,73 +142,31 @@ class NaverShoppingCrawler:
 
 
 # # ✅ CLI 인자 기반으로 실행되는 수집 함수(단일 카테고리 수집(직렬))
-# def collect_product(bucket_name: str, category_name: str):
-#     if category_name not in category_dir:
-#         logger.error(f"❌ 존재하지 않는 카테고리: {category_name}")
-#         return
+def collect_product(bucket_name: str, category_name: str):
+    if category_name not in category_dir:
+        logger.error(f"❌ 존재하지 않는 카테고리: {category_name}")
+        return
 
-#     category_id = category_dir[category_name]["id"]
-#     crawler = NaverShoppingCrawler()
-#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-#     logger.info(f"\n--- 카테고리 '{category_name}' 수집 시작 ---")
-#     try:
-#         products = crawler.fetch_products_api(
-#             display_category_id=category_id,
-#             sort_type="DISPLAY_CATEGORY_GENDER_AGE_GROUP_F20",
-#             max_pages=25,
-#             page_size=20,
-#             collection_timestamp=timestamp
-#         )
-
-#         if not products:
-#             logger.warning(f"⚠️ {category_name} 상품 없음")
-#         else:
-#             crawler.save_and_upload(products, category_name, timestamp, bucket_name)
-#             logger.info(f"\n📦 총 수집된 상품 수: {len(products)}개")
-#             logger.info(f"\n📌 '{category_name}' 수집 샘플: {products[0]['name']} ({products[0]['price']}원), 리뷰수: {products[0]['reviewCount']}, 평점: {products[0]['avgReviewScore']}")
-#     except Exception as e:
-#         logger.error(f"❌ 오류 발생: {e}", exc_info=True)
-
-# 병렬 수집
-def run_single_category(args):
-    category_name, bucket_name, timestamp = args
     category_id = category_dir[category_name]["id"]
     crawler = NaverShoppingCrawler()
-    logger.info(f"\n--- 병렬 수집 시작: {category_name} ---")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    logger.info(f"\n--- 카테고리 '{category_name}' 수집 시작 ---")
     try:
         products = crawler.fetch_products_api(
             display_category_id=category_id,
             sort_type="DISPLAY_CATEGORY_GENDER_AGE_GROUP_F20",
             max_pages=25,
             page_size=20,
-            collection_timestamp=timestamp,
+            collection_timestamp=timestamp
         )
 
         if not products:
             logger.warning(f"⚠️ {category_name} 상품 없음")
-            return
-
-        crawler.save_and_upload(products, category_name, timestamp, bucket_name)
-        logger.info(f"📦 {category_name} 수집 완료: {len(products)}개")
+        else:
+            crawler.save_and_upload(products, category_name, timestamp, bucket_name)
+            logger.info(f"\n📦 총 수집된 상품 수: {len(products)}개")
+            logger.info(f"\n📌 '{category_name}' 수집 샘플: {products[0]['name']} ({products[0]['price']}원), 리뷰수: {products[0]['reviewCount']}, 평점: {products[0]['avgReviewScore']}")
     except Exception as e:
-        logger.error(f"❌ {category_name} 수집 오류: {e}", exc_info=True)
-
-if __name__ == "__main__":
-    import multiprocessing
-    multiprocessing.set_start_method("spawn", force=True)
-
-    parser = argparse.ArgumentParser(description="네이버 뷰티 전체 병렬 수집기")
-    parser.add_argument("--bucket", required=True, help="GCS bucket name")
-    args = parser.parse_args()
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # 병렬 수집 실행
-    category_args = [(name, args.bucket, timestamp) for name in category_dir.keys()]
-    with Pool(min(len(category_args), cpu_count())) as pool:
-        pool.map(run_single_category, category_args)
-
-
+        logger.error(f"❌ 오류 발생: {e}", exc_info=True)
 
