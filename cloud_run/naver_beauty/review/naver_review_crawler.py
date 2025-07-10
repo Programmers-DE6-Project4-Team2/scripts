@@ -1,7 +1,7 @@
 import logging
 import sys
-import time
 import os
+import time
 import tempfile
 from typing import List, Dict
 import pandas as pd
@@ -223,3 +223,4 @@ def save_reviews(reviews: List[Dict], bucket_name: str, category_name: str,
     upload_to_gcs(bucket_name, content=tmp_path, blob_path=blob_path, content_type="text/csv", from_bytes=False)
     logging.info(f"📤 업로드 완료: gs://{bucket_name}/{blob_path}")
     os.remove(tmp_path)
+

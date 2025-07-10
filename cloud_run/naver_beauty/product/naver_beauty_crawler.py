@@ -170,3 +170,4 @@ def collect_product(bucket_name: str, category_name: str):
     except Exception as e:
         logger.error(f"❌ 오류 발생: {e}", exc_info=True)
 
+

@@ -18,4 +18,3 @@ def upload_to_gcs(bucket_name: str, content: Union[str, bytes], blob_path: str,
             blob.upload_from_file(f, content_type=content_type)
     
     #logging.info(f"✅ 업로드 완료: gs://{bucket_name}/{blob_path}")
-
