@@ -1,0 +1,25 @@
+project-root/
+├── api/                            ← Cloud Run Flask API 서버 코드
+│   ├── product_api.py              ← /run/product 엔드포인트 (상품 수집용)
+│   ├── review_api.py               ← /run/review 엔드포인트 (리뷰 수집용, 만들 예정)
+│   ├── requirements.txt            ← Flask + GCP + pandas 등 공통 의존성
+│   ├── Dockerfile                  ← Cloud Run 배포용 Docker 설정
+│   ├── .dockerignore
+│   ├── categories.py               ← 카테고리 이름/ID 매핑
+│   ├── gcs_uploader.py             ← GCS 업로드 함수 (CSV, JSON)
+│   ├── naver_beauty_crawler.py     ← 상품 수집 클래스
+│   ├── naver_review_crawler.py     ← 리뷰 수집 클래스
+│   └── utils/                      ← (선택) 유틸 함수 모음
+│       └── __init__.py
+│
+├── dags/                           ← Airflow DAG 파일 저장 디렉토리
+│   ├── naver_product_dag.py        ← 상품 수집 DAG
+│   └── naver_review_dag.py         ← 리뷰 수집 DAG
+│
+├── data/                           ← 로컬 임시 저장용 폴더 (테스트 시)
+│   └── collected_data/
+│
+├── tests/                          ← 테스트 코드들 (pytest 등)
+│
+├── README.md
+└── .env                            ← 환경변수 (GCP 인증, 버킷명 등)
