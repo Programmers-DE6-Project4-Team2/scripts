@@ -1,0 +1,6 @@
+# requirements.txt
+requests
+pandas
+google-cloud-storage
+fake-useragent
+dotenv

@@ -88,7 +88,7 @@ def extract_reviews_from_page(driver) -> List[Dict]:
 def collect_and_save_reviews(product_id: str, category_name: str, product_url: str, max_reviews: int = 500):
     print(f"\n📦 [{category_name}] {product_id} 리뷰 수집 시작")
     options = Options()
-    # options.add_argument("--headless=new")
+    options.add_argument("--headless=new")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
