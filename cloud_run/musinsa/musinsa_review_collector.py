@@ -7,7 +7,6 @@ import requests
 import json
 import time
 import logging
-import pandas as pd
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)

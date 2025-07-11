@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 무신사 랭킹 수집기
 """
@@ -7,9 +8,11 @@ import requests
 import json
 import time
 import logging
+import re
 from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
 
 class MusinsaRankingCollector:
     def __init__(self, session: requests.Session, section_id: str = "231",
@@ -33,6 +36,7 @@ class MusinsaRankingCollector:
             'page': page,
             'size': self.size
         }
+
         param_string = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{base_url}?{param_string}"
 
@@ -101,10 +105,14 @@ class MusinsaRankingCollector:
                 'likes': '',
                 'image_url': '',
                 'product_url': '',
-                'product_id': ''
+                'product_id': '',
+                'number_of_views': 0,  # 새로 추가
+                'sales': 0  # 새로 추가
             }
 
+            # 기본 상품 정보 추출
             product['product_id'] = str(item.get('id', ''))
+
             info = item.get('info', {})
             if not info:
                 return None
@@ -114,6 +122,7 @@ class MusinsaRankingCollector:
             product['price'] = str(info.get('finalPrice', ''))
             product['discount_rate'] = str(info.get('discountRatio', ''))
 
+            # 원가 계산
             if product['discount_rate'] and product['price']:
                 try:
                     final_price = int(product['price'])
@@ -124,10 +133,12 @@ class MusinsaRankingCollector:
                 except:
                     pass
 
+            # 이미지 정보 추출
             image_info = item.get('image', {})
             if image_info and 'url' in image_info:
                 product['image_url'] = image_info['url']
 
+            # 상품 URL 생성
             if product['product_id']:
                 product['product_url'] = f"https://www.musinsa.com/goods/{product['product_id']}"
 
@@ -135,35 +146,60 @@ class MusinsaRankingCollector:
             if onclick_info and 'url' in onclick_info:
                 product['product_url'] = onclick_info['url']
 
+            # 리뷰 정보 추출
             onclick_event = item.get('onClick', {}).get('eventLog', {}).get('amplitude', {}).get('payload', {})
             if onclick_event:
                 product['review_count'] = onclick_event.get('reviewCount', '')
                 product['rating'] = onclick_event.get('reviewScore', '')
 
-            image_event = item.get('image', {}).get('onClickLike', {}).get('eventLog', {}).get('amplitude', {}).get('payload', {})
+            image_event = item.get('image', {}).get('onClickLike', {}).get('eventLog', {}).get('amplitude', {}).get(
+                'payload', {})
             if image_event:
                 if not product['review_count']:
                     product['review_count'] = image_event.get('reviewCount', '')
                 if not product['rating']:
                     product['rating'] = image_event.get('reviewScore', '')
 
+            # ===== 새로 추가된 부분 =====
+
+            # 1. number_of_views 추출 (info.additionalInformation에서)
             additional_info = info.get('additionalInformation', [])
             if additional_info:
-                import re
                 for info_item in additional_info:
                     text = info_item.get('text', '')
+
+                    # "{number}명이 보는 중" 패턴 찾기
+                    views_match = re.search(r'(\d+)명이 보는 중', text)
+                    if views_match:
+                        product['number_of_views'] = int(views_match.group(1))
+
+                    # 기존 likes 로직도 유지
                     if '명이 보는 중' in text:
                         numbers = re.findall(r'\d+', text)
-                        if numbers:
+                        if numbers and not product.get('likes'):
                             product['likes'] = numbers[0]
+
+            # 2. sales 추출 (image.labels에서)
+            image_labels = image_info.get('labels', [])
+            if image_labels:
+                for label in image_labels:
+                    text = label.get('text', '')
+
+                    # "판매 {float}천개" 패턴 찾기
+                    sales_match = re.search(r'판매 ([\d.]+)천개', text)
+                    if sales_match:
+                        float_value = float(sales_match.group(1))
+                        product['sales'] = int(float_value * 1000)  # float * 1000
+                        break
+
+            # ===== 새로 추가된 부분 끝 =====
 
             if product['name'] and product['brand']:
                 return product
 
         except Exception as e:
             logger.warning(f"상품 파싱 중 오류: {e}")
-
-        return None
+            return None
 
     def extract_product_ids(self, products: List[Dict]) -> List[str]:
         """상품 리스트에서 product_id 추출"""
