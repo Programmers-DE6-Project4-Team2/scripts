@@ -84,6 +84,7 @@ class MusinsaCrawler:
     def crawl_single_category(self, category_code: str) -> Dict:
         """단일 카테고리 크롤링"""
         logger.info(f"카테고리 {category_code} ({CATEGORY_MAPPING.get(category_code, 'Unknown')}) 크롤링 시작")
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # 1. 랭킹 데이터 수집
         ranking_collector = MusinsaRankingCollector(
@@ -91,7 +92,8 @@ class MusinsaCrawler:
             section_id=self.section_id,
             size=self.size,
             category_code=category_code,
-            max_pages=self.max_pages
+            max_pages=self.max_pages,
+            created_at=created_at
         )
 
         # 페이지별로 상품 수집
