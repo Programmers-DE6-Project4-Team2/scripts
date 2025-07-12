@@ -3,7 +3,7 @@ FROM python:3.9-slim
 
 # 메타데이터 설정
 LABEL maintainer="de6-ez-team"
-LABEL description="Musinsa Data Crawler Flask Application with GCS Integration"
+LABEL description="Musinsa Data Crawler Cloud Run Job with GCS Integration"
 
 # 작업 디렉토리 설정
 WORKDIR /app
@@ -23,19 +23,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # 환경변수 설정
 ENV PYTHONPATH=/app
-ENV ENV=production
-ENV PORT=8080
-ENV HOST=0.0.0.0
+ENV ENV=cloud_run_job
 
 # 데이터 디렉토리 생성
 RUN mkdir -p /app/data /app/logs
 
-# 포트 노출
-EXPOSE 8080
-
-# 헬스체크 설정
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/ || exit 1
-
-# Flask 애플리케이션 실행
+# Cloud Run Job용 실행 명령어
 CMD ["python", "main.py"]
