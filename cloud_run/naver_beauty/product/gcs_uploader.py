@@ -1,7 +1,6 @@
 # gcs_uploader.py
 from google.cloud import storage
 from typing import Union
-import logging
 
 def upload_to_gcs(bucket_name: str, content: Union[str, bytes], blob_path: str,
                   content_type: str = "application/octet-stream", from_bytes: bool = False):
