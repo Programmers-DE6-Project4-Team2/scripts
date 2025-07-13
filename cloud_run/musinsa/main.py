@@ -4,7 +4,7 @@
 무신사 데이터 수집 Cloud Run Job 애플리케이션 (GCS 연동 포함)
 Docker 환경에서 실행되는 크롤링 서비스
 """
-
+import json
 import os
 import logging
 from datetime import datetime
@@ -15,12 +15,12 @@ import pandas as pd
 if os.environ.get("ENV", "").lower() != "production":
     load_dotenv()
 
-from musinsa_crawler import MusinsaCrawler, CATEGORY_MAPPING
+from musinsa_crawler import MusinsaCrawler
+from utils import CATEGORY_MAPPING
 from gcs_uploader import (
     upload_csv_to_gcs,
     upload_json_to_gcs,
-    upload_file_to_gcs,
-    list_gcs_files
+    upload_file_to_gcs
 )
 
 # 로깅 설정
@@ -103,300 +103,155 @@ class MusinsaDataPipeline:
             logger.error(f"GCS 업로드 중 오류: {e}")
             return False
 
-    def run_all_categories_collection(self, max_pages: int = 8, review_max_pages: int = 25) -> dict:
-        """모든 카테고리 데이터 수집 실행"""
+    def run_single_category_ranking(self, category_code: str) -> dict:
+        """단일 카테고리 랭킹 수집"""
         try:
-            logger.info(f"무신사 전체 카테고리 크롤링 시작 - 최대 {max_pages}페이지 (카테고리당 300개 상품)")
-            # 크롤러 초기화 - 상품 300개, 리뷰 500개 설정
-            crawler = MusinsaCrawler(
-                section_id="231",
-                size=40,  # 페이지당 40개
-                max_pages=max_pages,  # 8페이지 = 320개 (300개 이상 확보)
-                review_page_size=20,  # 페이지당 20개 리뷰
-                review_max_pages=review_max_pages  # 25페이지 = 500개 리뷰
-            )
+            logger.info(f"카테고리 {category_code} 랭킹 수집 시작")
 
-            # 전체 카테고리 데이터 수집
-            all_category_data = crawler.crawling_all_categories()
-
-            if not all_category_data:
-                return {"status": "error", "message": "수집된 카테고리 데이터가 없습니다."}
-
-            # 카테고리별 GCS 업로드
-            upload_results = []
-            category_summary = {}
-
-            for category_code, category_data in all_category_data.items():
-                category_name = category_data['category_name']
-                category_folder = self.get_category_folder_name(category_code)
-                products = category_data['products']
-                reviews = category_data['reviews']
-
-                # 새로운 파일명 생성 규칙
-                products_csv = f"product_{category_folder}_{category_code}_{self.timestamp}.csv"
-                reviews_csv = f"review_{category_folder}_{category_code}_{self.timestamp}.csv"
-
-                category_upload_success = True
-
-                if self.gcs_enabled:
-                    # 상품 데이터 업로드 (products 폴더)
-                    if products:
-                        df_products = pd.DataFrame(products)
-                        products_success = self._upload_to_gcs_with_category(
-                            df_products, products_csv, "csv", category_code, "products"
-                        )
-                        category_upload_success = category_upload_success and products_success
-
-                    # 리뷰 데이터 업로드 (reviews 폴더)
-                    if reviews:
-                        from musinsa_review_collector import MusinsaReviewCollector
-                        temp_collector = MusinsaReviewCollector(None, [])
-                        review_rows = temp_collector.flatten_reviews(reviews)
-                        df_reviews = pd.DataFrame(review_rows)
-                        reviews_success = self._upload_to_gcs_with_category(
-                            df_reviews, reviews_csv, "csv", category_code, "reviews"
-                        )
-                        category_upload_success = category_upload_success and reviews_success
-
-                upload_results.append(category_upload_success)
-
-                # 카테고리 요약 정보
-                category_summary[category_code] = {
-                    "category_name": category_name,
-                    "category_folder": category_folder,
-                    "product_count": len(products),
-                    "review_count": sum(len(review_list) for review_list in reviews.values()),
-                    "gcs_uploaded": category_upload_success,
-                    "files": {
-                        "products": products_csv,
-                        "reviews": reviews_csv
-                    }
-                }
-
-            total_products = sum(info["product_count"] for info in category_summary.values())
-            total_reviews = sum(info["review_count"] for info in category_summary.values())
-
-            logger.info(f"전체 카테고리 크롤링 완료 - {len(all_category_data)}개 카테고리, 상품 {total_products}개, 리뷰 {total_reviews}개")
-
-            return {
-                "status": "success",
-                "message": f"전체 카테고리 데이터 수집 완료",
-                "data": {
-                    "category_count": len(all_category_data),
-                    "total_products": total_products,
-                    "total_reviews": total_reviews,
-                    "categories": category_summary,
-                    "timestamp": self.timestamp,
-                    "date": self.date_str,
-                    "gcs_uploaded": all(upload_results),
-                    "folder_structure": {
-                        "products": f"gs://{self.bucket_name}/raw-data/musinsa/products/{{category}}/{self.date_str}/",
-                        "reviews": f"gs://{self.bucket_name}/raw-data/musinsa/reviews/{{category}}/{self.date_str}/"
-                    } if self.gcs_enabled else None
-                }
-            }
-
-        except Exception as e:
-            logger.error(f"전체 카테고리 크롤링 중 오류: {e}")
-            return {"status": "error", "message": str(e)}
-
-    def run_product_collection(self, max_pages: int = 8, size: int = 40) -> dict:
-        """상품 데이터 수집 실행"""
-        try:
-            logger.info(f"무신사 상품 크롤링 시작 - 최대 {max_pages}페이지 (카테고리당 300개 상품)")
-            # 크롤러 초기화
-            crawler = MusinsaCrawler(
-                section_id="231",
-                size=size,
-                max_pages=max_pages,
-                review_page_size=20,
-                review_max_pages=1
-            )
-
-            # 상품 데이터 수집
-            result = crawler.crawling_all_categories()
-
-            # GCS 업로드 (카테고리별)
-            gcs_upload_success = True
-            upload_results = []
-
-            if self.gcs_enabled:
-                for category_code, category_data in result.items():
-                    products = category_data.get('products', [])
-                    if products:
-                        category_folder = self.get_category_folder_name(category_code)
-                        csv_filename = f"product_{category_folder}_{category_code}_{self.timestamp}.csv"
-                        json_filename = f"product_{category_folder}_{category_code}_{self.timestamp}.json"
-
-                        df = pd.DataFrame(products)
-                        csv_success = self._upload_to_gcs(df, csv_filename, "csv", "products", category_code)
-                        json_success = self._upload_to_gcs(products, json_filename, "json", "products", category_code)
-                        upload_results.append(csv_success and json_success)
-
-            gcs_upload_success = all(upload_results)
-
-            # 전체 상품 수 계산
-            all_products = []
-            for category_data in result.values():
-                all_products.extend(category_data.get('products', []))
-
-            logger.info(f"상품 크롤링 완료 - {len(all_products)}개 상품 수집")
-
-            return {
-                "status": "success",
-                "message": f"{len(all_products)}개 상품 데이터 수집 완료",
-                "data": {
-                    "product_count": len(all_products),
-                    "category_count": len(result),
-                    "timestamp": self.timestamp,
-                    "gcs_uploaded": gcs_upload_success,
-                    "folder_structure": f"gs://{self.bucket_name}/raw-data/musinsa/products/{{category}}/{self.date_str}/" if self.gcs_enabled else None
-                }
-            }
-
-        except Exception as e:
-            logger.error(f"상품 크롤링 중 오류: {e}")
-            return {"status": "error", "message": str(e)}
-
-    def run_review_collection(self, max_pages: int = 8, review_max_pages: int = 25) -> dict:
-        """리뷰 데이터 수집 실행"""
-        try:
-            logger.info(f"무신사 리뷰 크롤링 시작 - 상품 {max_pages}페이지, 리뷰 {review_max_pages}페이지 (상품당 500개 리뷰)")
-            # 크롤러 초기화
             crawler = MusinsaCrawler(
                 section_id="231",
                 size=40,
-                max_pages=max_pages,
+                max_pages=int(os.environ.get("MAX_PAGES", "8")),
                 review_page_size=20,
-                review_max_pages=review_max_pages
+                review_max_pages=1  # 랭킹만 수집
             )
 
-            # 전체 데이터 수집
-            result = crawler.crawling_all_categories()
+            result = crawler.crawl_single_category_ranking(category_code)
 
-            # GCS 업로드 (카테고리별)
-            gcs_upload_success = True
-            upload_results = []
+            # GCS 업로드
+            if self.gcs_enabled and result['products']:
+                success = self._upload_ranking_to_gcs(result, category_code)
+                result['gcs_uploaded'] = success
 
-            if self.gcs_enabled:
-                for category_code, category_data in result.items():
-                    reviews = category_data.get('reviews', {})
-                    if reviews:
-                        category_folder = self.get_category_folder_name(category_code)
-                        csv_filename = f"review_{category_folder}_{category_code}_{self.timestamp}.csv"
-                        json_filename = f"review_{category_folder}_{category_code}_{self.timestamp}.json"
+            logger.info(f"카테고리 {category_code} 랭킹 수집 완료 - {result['product_count']}개 상품")
 
-                        # 리뷰 데이터를 DataFrame으로 변환
-                        from musinsa_review_collector import MusinsaReviewCollector
-                        temp_collector = MusinsaReviewCollector(None, [])
-                        review_rows = temp_collector.flatten_reviews(reviews)
-                        df = pd.DataFrame(review_rows)
-
-                        csv_success = self._upload_to_gcs(df, csv_filename, "csv", "reviews", category_code)
-                        json_success = self._upload_to_gcs(reviews, json_filename, "json", "reviews", category_code)
-                        upload_results.append(csv_success and json_success)
-
-            gcs_upload_success = all(upload_results)
-
-            # 전체 리뷰 수 계산
-            all_reviews = {}
-            for category_data in result.values():
-                all_reviews.update(category_data.get('reviews', {}))
-            total_reviews = sum(len(review_list) for review_list in all_reviews.values())
-
-            logger.info(f"리뷰 크롤링 완료 - {total_reviews}개 리뷰 수집")
+            # product_ids 반환 (다음 단계에서 사용)
+            product_ids = [p['product_id'] for p in result['products'] if p.get('product_id')]
 
             return {
                 "status": "success",
-                "message": f"{total_reviews}개 리뷰 데이터 수집 완료",
+                "message": f"카테고리 {category_code} 랭킹 수집 완료",
                 "data": {
-                    "product_count": len(all_reviews),
-                    "review_count": total_reviews,
-                    "category_count": len(result),
-                    "timestamp": self.timestamp,
-                    "gcs_uploaded": gcs_upload_success,
-                    "folder_structure": f"gs://{self.bucket_name}/raw-data/musinsa/reviews/{{category}}/{self.date_str}/" if self.gcs_enabled else None
+                    "category_code": category_code,
+                    "product_ids": product_ids,
+                    "product_count": len(product_ids),
+                    "created_at": result['created_at']
                 }
             }
 
         except Exception as e:
-            logger.error(f"리뷰 크롤링 중 오류: {e}")
+            logger.error(f"카테고리 {category_code} 랭킹 수집 중 오류: {e}")
             return {"status": "error", "message": str(e)}
 
-    def run_full_pipeline(self, product_pages: int = 8, review_pages: int = 25) -> dict:
-        """전체 파이프라인 실행 (products, reviews 폴더에만 업로드)"""
+    def _upload_reviews_to_gcs(self, result: dict) -> bool:
+        """리뷰 데이터 GCS 업로드"""
         try:
-            logger.info("무신사 전체 데이터 파이프라인 시작 - 카테고리당 300개 상품, 상품당 500개 리뷰")
-            # 크롤러 초기화
+            category_code = result['category_code']
+            batch_index = result['batch_index']
+            category_folder = self.get_category_folder_name(category_code)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            csv_filename = f"review_{category_folder}_{category_code}_batch_{batch_index}_{timestamp}.csv"
+
+            # 리뷰 데이터를 플랫 구조로 변환
+            from musinsa_review_collector import MusinsaReviewCollector
+            temp_collector = MusinsaReviewCollector(None, [])
+            review_rows = temp_collector.flatten_reviews(result['reviews'])
+
+            df = pd.DataFrame(review_rows)
+
+            return self._upload_to_gcs(
+                df, csv_filename, "csv", "reviews", category_code
+            )
+
+        except Exception as e:
+            logger.error(f"리뷰 데이터 GCS 업로드 실패: {e}")
+            return False
+
+    def run_review_batch(self, product_ids_str: str, batch_info_str: str) -> dict:
+        """배치별 리뷰 수집"""
+        try:
+            import json
+
+            # JSON 문자열을 파이썬 객체로 변환
+            product_ids = json.loads(product_ids_str) if isinstance(product_ids_str, str) else product_ids_str
+            batch_info = json.loads(batch_info_str) if isinstance(batch_info_str, str) else batch_info_str
+
+            logger.info(f"배치 {batch_info.get('batch_index', 0)} 리뷰 수집 시작 - {len(product_ids)}개 상품")
+
             crawler = MusinsaCrawler(
                 section_id="231",
                 size=40,
-                max_pages=product_pages,
+                max_pages=1,  # 리뷰만 수집
                 review_page_size=20,
-                review_max_pages=review_pages
+                review_max_pages=int(os.environ.get("REVIEW_PAGES", "25"))
             )
 
-            # 전체 데이터 수집
-            result = crawler.crawling_all_categories()
+            result = crawler.crawl_review_batch(product_ids, batch_info)
 
-            # GCS 업로드 (카테고리별)
-            gcs_upload_success = True
-            upload_results = []
+            # GCS 업로드
+            if self.gcs_enabled and result['reviews']:
+                success = self._upload_reviews_to_gcs(result)
+                result['gcs_uploaded'] = success
 
-            if self.gcs_enabled:
-                for category_code, category_data in result.items():
-                    category_folder = self.get_category_folder_name(category_code)
-
-                    # 상품 데이터 업로드
-                    products = category_data.get('products', [])
-                    if products:
-                        products_csv = f"product_{category_folder}_{category_code}_{self.timestamp}.csv"
-                        df_products = pd.DataFrame(products)
-                        upload_results.append(
-                            self._upload_to_gcs(df_products, products_csv, "csv", "products", category_code))
-
-                    # 리뷰 데이터 업로드
-                    reviews = category_data.get('reviews', {})
-                    if reviews:
-                        reviews_csv = f"review_{category_folder}_{category_code}_{self.timestamp}.csv"
-                        from musinsa_review_collector import MusinsaReviewCollector
-                        temp_collector = MusinsaReviewCollector(None, [])
-                        review_rows = temp_collector.flatten_reviews(reviews)
-                        df_reviews = pd.DataFrame(review_rows)
-                        upload_results.append(
-                            self._upload_to_gcs(df_reviews, reviews_csv, "csv", "reviews", category_code))
-
-            gcs_upload_success = all(upload_results)
-
-            # 전체 통계 계산
-            all_products = []
-            all_reviews = {}
-            for category_data in result.values():
-                all_products.extend(category_data.get('products', []))
-                all_reviews.update(category_data.get('reviews', {}))
-            total_reviews = sum(len(review_list) for review_list in all_reviews.values())
-
-            logger.info(f"전체 파이프라인 완료 - 상품 {len(all_products)}개, 리뷰 {total_reviews}개")
+            logger.info(f"배치 {result['batch_index']} 리뷰 수집 완료 - {result['review_count']}개 리뷰")
 
             return {
                 "status": "success",
-                "message": "전체 파이프라인 실행 완료",
+                "message": f"배치 {result['batch_index']} 리뷰 수집 완료",
+                "data": result
+            }
+
+        except Exception as e:
+            logger.error(f"배치 리뷰 수집 중 오류: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def create_review_batches_from_ids(self, product_ids_str: str, category_code: str, batch_size: int = 30) -> dict:
+        """product_ids를 배치로 나누기"""
+        try:
+            import json
+
+            product_ids = json.loads(product_ids_str) if isinstance(product_ids_str, str) else product_ids_str
+
+            batches = MusinsaCrawler.create_review_batches(product_ids, batch_size)
+
+            # 각 배치에 category_code 추가
+            for batch in batches:
+                batch['category_code'] = category_code
+
+            return {
+                "status": "success",
+                "message": f"{len(product_ids)}개 상품을 {len(batches)}개 배치로 분할",
                 "data": {
-                    "product_count": len(all_products),
-                    "review_count": total_reviews,
-                    "category_count": len(result),
-                    "timestamp": self.timestamp,
-                    "gcs_uploaded": gcs_upload_success,
-                    "folder_structure": {
-                        "products": f"gs://{self.bucket_name}/raw-data/musinsa/products/{{category}}/{self.date_str}/",
-                        "reviews": f"gs://{self.bucket_name}/raw-data/musinsa/reviews/{{category}}/{self.date_str}/"
-                    } if self.gcs_enabled else None
+                    "category_code": category_code,
+                    "total_products": len(product_ids),
+                    "batch_count": len(batches),
+                    "batch_size": batch_size,
+                    "batches": batches
                 }
             }
 
         except Exception as e:
-            logger.error(f"전체 파이프라인 실행 중 오류: {e}")
+            logger.error(f"배치 생성 중 오류: {e}")
             return {"status": "error", "message": str(e)}
+
+    def _upload_ranking_to_gcs(self, result: dict, category_code: str) -> bool:
+        """랭킹 데이터 GCS 업로드"""
+        try:
+            category_folder = self.get_category_folder_name(category_code)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            csv_filename = f"product_{category_folder}_{category_code}_{timestamp}.csv"
+
+            df = pd.DataFrame(result['products'])
+
+            return self._upload_to_gcs(
+                df, csv_filename, "csv", "products", category_code
+            )
+
+        except Exception as e:
+            logger.error(f"랭킹 데이터 GCS 업로드 실패: {e}")
+            return False
 
 
 def main():
@@ -405,23 +260,42 @@ def main():
 
     pipeline = MusinsaDataPipeline()
 
-    # 환경변수로 실행 모드 결정 (기본값을 새로운 설정으로 변경)
+    # 환경변수로 실행 모드 결정
     mode = os.environ.get("CRAWL_MODE", "all-categories").lower()
-    max_pages = int(os.environ.get("MAX_PAGES", "8"))  # 8페이지 = 320개 상품
-    review_pages = int(os.environ.get("REVIEW_PAGES", "25"))  # 25페이지 = 500개 리뷰
 
-    logger.info(f"실행 모드: {mode}, 최대 페이지: {max_pages} (카테고리당 ~300개 상품), 리뷰 페이지: {review_pages} (상품당 ~500개 리뷰)")
+    # 새로운 환경변수들
+    category_code = os.environ.get("CATEGORY_CODE", "")
+    product_ids = os.environ.get("PRODUCT_IDS", "")
+    batch_info = os.environ.get("BATCH_INFO", "")
+    batch_size = int(os.environ.get("BATCH_SIZE", "30"))
 
-    if mode == "products":
-        result = pipeline.run_product_collection(max_pages)
-    elif mode == "reviews":
-        result = pipeline.run_review_collection(max_pages, review_pages)
-    elif mode == "full":
-        result = pipeline.run_full_pipeline(max_pages, review_pages)
-    else:  # all-categories
-        result = pipeline.run_all_categories_collection(max_pages, review_pages)
+    logger.info(f"실행 모드: {mode}")
+
+    if mode == "single-category-ranking":
+        # 단일 카테고리 랭킹 수집
+        if not category_code:
+            logger.error("CATEGORY_CODE 환경변수가 필요합니다.")
+            exit(1)
+        result = pipeline.run_single_category_ranking(category_code)
+
+    elif mode == "review-batch":
+        # 배치별 리뷰 수집
+        if not product_ids or not batch_info:
+            logger.error("PRODUCT_IDS와 BATCH_INFO 환경변수가 필요합니다.")
+            exit(1)
+        result = pipeline.run_review_batch(product_ids, batch_info)
+
+    elif mode == "create-batches":
+        # product_ids를 배치로 나누기
+        if not product_ids or not category_code:
+            logger.error("PRODUCT_IDS와 CATEGORY_CODE 환경변수가 필요합니다.")
+            exit(1)
+        result = pipeline.create_review_batches_from_ids(product_ids, category_code, batch_size)
 
     logger.info(f"크롤링 결과: {result}")
+
+    # 결과를 JSON으로 출력 (Airflow에서 XCom으로 활용 가능)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
     # 결과에 따라 exit code 설정
     if result.get("status") == "success":

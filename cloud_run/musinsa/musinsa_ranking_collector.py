@@ -205,7 +205,3 @@ class MusinsaRankingCollector:
         except Exception as e:
             logger.warning(f"상품 파싱 중 오류: {e}")
             return None
-
-    def extract_product_ids(self, products: List[Dict]) -> List[str]:
-        """상품 리스트에서 product_id 추출"""
-        return [product['product_id'] for product in products if product.get('product_id')]

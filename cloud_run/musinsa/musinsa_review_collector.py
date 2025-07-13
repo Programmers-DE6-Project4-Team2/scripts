@@ -86,12 +86,10 @@ class MusinsaReviewCollector:
     def flatten_reviews(self, reviews: Dict[str, List[Dict]]) -> List[Dict]:
         """리뷰 데이터를 플랫하게 만들어주는 함수"""
         rows = []
-        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         for product_id, review_list in reviews.items():
             for review in review_list:
                 flat = {
-                    'product_id': product_id,
-                    'created_at': created_at
+                    'product_id': product_id
                 }
 
                 for k, v in review.items():
