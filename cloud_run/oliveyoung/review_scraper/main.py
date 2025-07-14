@@ -79,8 +79,11 @@ def scrape_reviews(product_id: str, product_url: str, max_pages: int = 1):
             
             # 파일 경로 생성 (CSV 확장자로 변경)
             now = datetime.now(timezone.utc)
+            year = now.strftime("%Y")
+            month = now.strftime("%m")
+            day = now.strftime("%d")
             file_path = (
-                f"raw-data/olive-young/reviews/{product_id}/{product_id}_{now.strftime('%Y%m%d_%H%M%S')}.csv"
+                f"raw-data/olive-young/reviews/{product_id}/{year}/{month}/{day}/{product_id}_{now.strftime('%Y%m%d_%H%M%S')}.csv"
             )
             
             # CSV 업로드 (메타데이터 객체 없이 리뷰 데이터만)
