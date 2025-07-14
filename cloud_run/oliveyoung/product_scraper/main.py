@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import pandas as pd
 from google.cloud import storage
 from oliveyoung_scraper_module import OliveYoungProductScraper
@@ -49,7 +49,7 @@ def main():
         df = pd.DataFrame(products)
 
         # 2. GCS 업로드
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%d_%H%M%S")
         year = now.strftime("%Y")
         month = now.strftime("%m")
