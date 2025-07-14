@@ -7,7 +7,7 @@ import json
 import os
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 import pandas as pd
 
@@ -92,7 +92,7 @@ def run_product_job():
         "product_ids": result.get('product_ids', []),
         "product_count": result.get('product_count', 0),
         "gcs_uploaded": result.get('gcs_uploaded', False),
-        "created_at": datetime.now().isoformat()
+        "scraped_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -132,7 +132,7 @@ def run_review_job():
         "batch_index": batch_info.get('batch_index', 0),
         "review_count": result.get('review_count', 0),
         "gcs_uploaded": result.get('gcs_uploaded', False),
-        "created_at": datetime.now().isoformat()
+        "scraped_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -144,8 +144,8 @@ def upload_products_to_gcs(result, category_code):
 
     try:
         category_folder = CATEGORY_MAPPING.get(category_code, f"category_{category_code}").replace("/", "&")
-        date_str = datetime.now().strftime("%Y%m%d")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         filename = f"product_{category_folder}_{category_code}_{timestamp}.csv"
         gcs_path = f"raw-data/musinsa/products/{category_folder}/{date_str}/{filename}"
@@ -170,8 +170,8 @@ def upload_reviews_to_gcs(result):
         category_code = result.get('category_code', 'unknown')
         batch_index = result.get('batch_index', 0)
         category_folder = CATEGORY_MAPPING.get(category_code, f"category_{category_code}").replace("/", "&")
-        date_str = datetime.now().strftime("%Y%m%d")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         filename = f"review_{category_folder}_{category_code}_batch_{batch_index}_{timestamp}.csv"
         gcs_path = f"raw-data/musinsa/reviews/{category_folder}/{date_str}/{filename}"

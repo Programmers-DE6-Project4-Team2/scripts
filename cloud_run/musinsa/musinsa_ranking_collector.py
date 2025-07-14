@@ -3,7 +3,7 @@
 """
 무신사 랭킹 수집기
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 import json
@@ -18,14 +18,14 @@ logger = logging.getLogger(__name__)
 class MusinsaRankingCollector:
     def __init__(
             self, session: requests.Session, section_id: str = "231", size: int = 40,
-            category_code: str = "104001", max_pages: int = 5, created_at: str = None
+            category_code: str = "104001", max_pages: int = 5, scraped_at: str = None
     ):
         self.session = session
         self.size = size
         self.section_id = section_id
         self.category_code = category_code
         self.max_pages = max_pages
-        self.created_at = created_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.scraped_at = scraped_at or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     def build_api_url(self, page: int = 1) -> str:
         """API URL 생성"""
@@ -86,7 +86,7 @@ class MusinsaRankingCollector:
 
             for idx, item in enumerate(product_items):
                 product = self.parse_product_item(item, (page - 1) * self.size + idx + 1)
-                product['created_at'] = self.created_at
+                product['scraped_at'] = self.scraped_at
                 if product:
                     products.append(product)
 

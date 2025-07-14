@@ -6,7 +6,7 @@
 
 import requests
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 from fake_useragent import UserAgent
 
@@ -52,7 +52,7 @@ class MusinsaCrawler:
         logger.info(f"카테고리 {category_code} 랭킹 크롤링 시작")
 
         try:
-            created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            scraped_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
             ranking_collector = MusinsaRankingCollector(
                 session=self.session,
@@ -60,7 +60,7 @@ class MusinsaCrawler:
                 size=self.size,
                 category_code=category_code,
                 max_pages=self.max_pages,
-                created_at=created_at
+                scraped_at=scraped_at
             )
 
             all_products = []
@@ -83,7 +83,7 @@ class MusinsaCrawler:
                 'products': all_products,
                 'product_ids': product_ids,  # Airflow 전달용
                 'product_count': len(all_products),
-                'created_at': created_at
+                'scraped_at': scraped_at
             }
 
         except Exception as e:

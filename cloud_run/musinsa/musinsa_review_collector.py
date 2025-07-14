@@ -2,7 +2,7 @@
 """
 무신사 리뷰 수집기
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import requests
 import json
@@ -44,8 +44,9 @@ class MusinsaReviewCollector:
         for i, goods_no in enumerate(self.product_ids):
             try:
                 logger.info(f"상품 {goods_no} 리뷰 수집 중 ({i + 1}/{len(self.product_ids)})")
+                scraped_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-                reviews = self.fetch_product_reviews(goods_no)
+                reviews = self.fetch_product_reviews(goods_no, scraped_at)
                 all_reviews[goods_no] = reviews
 
                 logger.info(f"상품 {goods_no} 완료: {len(reviews)}개 리뷰 수집")
@@ -64,7 +65,7 @@ class MusinsaReviewCollector:
 
         return all_reviews
 
-    def fetch_product_reviews(self, goods_no: str) -> List[Dict]:
+    def fetch_product_reviews(self, goods_no: str, scraped_at: str) -> List[Dict]:
         """단일 상품의 모든 리뷰 수집 - 지연 시간 추가"""
         logger.info(f"상품 {goods_no}의 리뷰 수집 시작")
         reviews = []
@@ -80,6 +81,9 @@ class MusinsaReviewCollector:
                 if not review_list:
                     logger.info(f"상품 {goods_no}의 {page}페이지에서 더 이상 리뷰가 없음")
                     break
+
+                for review in review_list:
+                    review['scraped_at'] = scraped_at
 
                 reviews.extend(review_list)
                 logger.info(f"상품 {goods_no}의 {page}페이지에서 {len(review_list)}개 리뷰 수집")
@@ -126,10 +130,13 @@ class MusinsaReviewCollector:
                 for k, v in review.items():
                     if isinstance(v, dict):
                         for subk, subv in v.items():
-                            flat[f'{k}.{subk}'] = subv
+                            column_name = f'{k}_{subk}'.replace('.', '_')
+                            flat[column_name] = subv
                     elif isinstance(v, list):
-                        flat[k] = json.dumps(v, ensure_ascii=False)
+                        column_name = k.replace('.', '_')
+                        flat[column_name] = json.dumps(v, ensure_ascii=False)
                     else:
-                        flat[k] = v
+                        column_name = k.replace('.', '_')
+                        flat[column_name] = v
                 rows.append(flat)
         return rows
