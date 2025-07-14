@@ -2,7 +2,7 @@ import time
 import json
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import pandas as pd
 import requests
@@ -293,7 +293,7 @@ class OliveYoungProductScraper:
                 'rating': rating,
                 'review_count': review_count,
                 'category': os.getenv('CATEGORY_NAME', ''),
-                'scraped_at': datetime.now().isoformat()
+                'scraped_at': datetime.now(timezone.utc).isoformat()
             }
 
         except Exception as e:
@@ -576,7 +576,7 @@ class OliveYoungProductScraper:
                 'author': '',
                 'date': '',
                 'helpful_count': '',
-                'scraped_at': datetime.now().isoformat()
+                'scraped_at': datetime.now(timezone.utc).isoformat()
             }
 
             # 평점 추출 (여러 방식 시도)
