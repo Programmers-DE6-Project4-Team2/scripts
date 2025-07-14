@@ -5,6 +5,7 @@ oliveyoung_product_scraper.py의 Chrome 설정을 참고하여 최적화
 
 import time
 import logging
+import re
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
@@ -65,6 +66,22 @@ class OliveYoungReviewScraper:
             logger.error(f"페이지 로딩 실패: {e}")
             return False
     
+    def extract_total_review_count(self, soup: BeautifulSoup) -> str:
+        """리뷰 탭에서 총 리뷰 수 추출"""
+        try:
+            # 리뷰 탭에서 총 리뷰수 추출: 리뷰<span>(10,789)</span>
+            review_tab = soup.select_one('a.goods_reputation span')
+            if review_tab:
+                review_count_text = review_tab.text.strip()
+                # 괄호 안의 숫자만 추출 (예: "(10,789)" -> "10,789")
+                match = re.search(r'\(([0-9,]+)\)', review_count_text)
+                if match:
+                    return match.group(1)
+            return "N/A"
+        except Exception as e:
+            logger.error(f"총 리뷰수 추출 중 오류 발생: {e}")
+            return "N/A"
+    
     def extract_reviews_with_pagination(self, product_url: str, max_pages: int = 5) -> tuple[List[Dict], str]:
         """리뷰 데이터 추출 with 페이지네이션 - 카테고리 정보도 함께 반환"""
         reviews = []
@@ -121,15 +138,19 @@ class OliveYoungReviewScraper:
             product_name_tag = soup.find("p", class_="prd_name")
             product_name = product_name_tag.text.strip() if product_name_tag else "N/A"
             
+            # 총 리뷰 수 추출
+            total_review_count = self.extract_total_review_count(soup)
+            
             logger.info(f"상품명: {product_name}")
             logger.info(f"카테고리: {category_name}")
+            logger.info(f"총 리뷰 수: {total_review_count}")
             
             # 각 페이지별 리뷰 수집
             for page in range(1, max_pages + 1):
                 logger.info(f"페이지 {page} 리뷰 수집 시작")
                 
                 # 현재 페이지의 리뷰 파싱
-                current_reviews = self.parse_review_dom(self.driver.page_source, product_name, page=page)
+                current_reviews = self.parse_review_dom(self.driver.page_source, product_name, page=page, total_review_count=total_review_count)
                 
                 if current_reviews:
                     reviews.extend(current_reviews)
@@ -201,7 +222,7 @@ class OliveYoungReviewScraper:
             logger.error(f"다음 페이지로 이동 중 오류: {e}")
             return False
     
-    def parse_review_dom(self, html: str, product_name: str, page: int) -> List[Dict]:
+    def parse_review_dom(self, html: str, product_name: str, page: int, total_review_count: str = "N/A") -> List[Dict]:
         """HTML에서 리뷰 파싱"""
         soup = BeautifulSoup(html, "lxml")
         
@@ -257,7 +278,8 @@ class OliveYoungReviewScraper:
                     "purchase_type": purchase_type,
                     "page": page,
                     "helpful": helpful,
-                    "scraped_at": datetime.now(timezone.utc).isoformat()
+                    "scraped_at": datetime.now(timezone.utc).isoformat(),
+                    "total_review_count": total_review_count
                 }
                 
                 # 최소한 평점이나 리뷰 텍스트가 있어야 유효한 리뷰로 간주

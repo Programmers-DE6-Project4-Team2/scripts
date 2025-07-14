@@ -1,6 +1,7 @@
 import time
 import csv
 import os
+import re
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -8,13 +9,29 @@ from selenium.webdriver.support import expected_conditions as EC
 from undetected_chromedriver import Chrome, ChromeOptions
 from typing import List, Dict
 
+def extract_total_review_count(soup: BeautifulSoup) -> str:
+    """Extract total review count from the review tab"""
+    try:
+        # 리뷰 탭에서 총 리뷰수 추출: 리뷰<span>(10,789)</span>
+        review_tab = soup.select_one('a.goods_reputation span')
+        if review_tab:
+            review_count_text = review_tab.text.strip()
+            # 괄호 안의 숫자만 추출 (예: "(10,789)" -> "10,789")
+            match = re.search(r'\(([0-9,]+)\)', review_count_text)
+            if match:
+                return match.group(1)
+        return "N/A"
+    except Exception as e:
+        print(f"총 리뷰수 추출 중 오류 발생: {e}")
+        return "N/A"
+
 def write_data(data):
     file_path = "./data/suncream_reviews_score.csv"
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     file_exists = os.path.isfile(file_path)
 
     with open(file_path, "a", newline='', encoding='utf-8') as fw:
-        fieldnames = ["product_name", "star", "review", "skin_type", "date", "purchase_type", "page", "helpful"]
+        fieldnames = ["product_name", "star", "review", "skin_type", "date", "purchase_type", "page", "helpful", "total_review_count"]
         writer = csv.DictWriter(fw, fieldnames=fieldnames)
 
         if not file_exists:
@@ -23,7 +40,7 @@ def write_data(data):
         for row in data:
             writer.writerow(row)
 
-def parse_review_dom(html: str, product_name: str, page: int) -> List[Dict]:
+def parse_review_dom(html: str, product_name: str, page: int, total_review_count: str) -> List[Dict]:
     soup = BeautifulSoup(html, "lxml")
     reviews = soup.select("ul#gdasList > li")
     parsed_reviews = []
@@ -52,7 +69,8 @@ def parse_review_dom(html: str, product_name: str, page: int) -> List[Dict]:
                 "date": date,
                 "purchase_type": purchase_type,
                 "page": page,
-                "helpful": helpful
+                "helpful": helpful,
+                "total_review_count": total_review_count
             })
         except Exception as e:
             print(f"리뷰 파싱 중 오류 발생: {e}")
@@ -89,8 +107,12 @@ def crawl_first_page(url: str):
         product_name_tag = soup.find("p", class_="prd_name")
         product_name = product_name_tag.text.strip() if product_name_tag else "N/A"
 
+        # 총 리뷰수 추출
+        total_review_count = extract_total_review_count(soup)
+        print(f"총 리뷰수: {total_review_count}")
+
         # 리뷰 파싱
-        reviews = parse_review_dom(driver.page_source, product_name, page=1)
+        reviews = parse_review_dom(driver.page_source, product_name, page=1, total_review_count=total_review_count)
 
         if reviews:
             write_data(reviews)
