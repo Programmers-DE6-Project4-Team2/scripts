@@ -110,6 +110,7 @@ class MusinsaCrawler:
                     'status': 'success',
                     'batch_index': batch_index,
                     'category_code': category_code,
+                    'category_name': CATEGORY_MAPPING.get(category_code, 'Unknown'),
                     'reviews': {},
                     'review_count': 0
                 }
@@ -130,6 +131,7 @@ class MusinsaCrawler:
                 'status': 'success',
                 'batch_index': batch_index,
                 'category_code': category_code,
+                'category_name': CATEGORY_MAPPING.get(category_code, 'Unknown'),
                 'reviews': reviews,
                 'review_count': total_reviews,
                 'product_count': len(product_ids)

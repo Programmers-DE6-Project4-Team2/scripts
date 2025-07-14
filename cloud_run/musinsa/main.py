@@ -16,8 +16,9 @@ if os.environ.get("ENV", "").lower() != "production":
     load_dotenv()
 
 from musinsa_crawler import MusinsaCrawler
+from musinsa_review_collector import MusinsaReviewCollector
 from utils import CATEGORY_MAPPING
-from gcs_uploader import upload_csv_to_gcs, upload_json_to_gcs
+from gcs_uploader import upload_csv_to_gcs
 
 # 로깅 설정
 logging.basicConfig(
@@ -143,12 +144,15 @@ def upload_products_to_gcs(result, category_code):
         return False
 
     try:
-        category_folder = CATEGORY_MAPPING.get(category_code, f"category_{category_code}").replace("/", "&")
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        category_name = CATEGORY_MAPPING.get(category_code, f"category_{category_code}")
+        now_utc = datetime.now(timezone.utc)
+        year = now_utc.strftime("%Y")
+        month = now_utc.strftime("%m")
+        day = now_utc.strftime("%d")
+        timestamp = now_utc.strftime("%Y%m%d_%H%M%S")
 
-        filename = f"product_{category_folder}_{category_code}_{timestamp}.csv"
-        gcs_path = f"raw-data/musinsa/products/{category_folder}/{date_str}/{filename}"
+        filename = f"{category_name}_{timestamp}.csv"
+        gcs_path = f"raw-data/musinsa/products/{category_name}/{year}/{month}/{day}/{filename}"
 
         df = pd.DataFrame(result['products'])
         return upload_csv_to_gcs(bucket_name, df, gcs_path, os.environ.get("GCS_PROJECT_ID"))
@@ -165,23 +169,41 @@ def upload_reviews_to_gcs(result):
         return False
 
     try:
-        from musinsa_review_collector import MusinsaReviewCollector
-
-        category_code = result.get('category_code', 'unknown')
-        batch_index = result.get('batch_index', 0)
-        category_folder = CATEGORY_MAPPING.get(category_code, f"category_{category_code}").replace("/", "&")
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
-        filename = f"review_{category_folder}_{category_code}_batch_{batch_index}_{timestamp}.csv"
-        gcs_path = f"raw-data/musinsa/reviews/{category_folder}/{date_str}/{filename}"
-
         # 리뷰 데이터 플랫하게 변환
         temp_collector = MusinsaReviewCollector(None, [])
         review_rows = temp_collector.flatten_reviews(result['reviews'])
-        df = pd.DataFrame(review_rows)
+        if not review_rows:
+            logger.warning("업로드할 리뷰 데이터가 없습니다.")
+            return True
 
-        return upload_csv_to_gcs(bucket_name, df, gcs_path, os.environ.get("GCS_PROJECT_ID"))
+        now_utc = datetime.now(timezone.utc)
+        year = now_utc.strftime("%Y")
+        month = now_utc.strftime("%m")
+        day = now_utc.strftime("%d")
+        timestamp = now_utc.strftime("%Y%m%d_%H%M%S")
+
+        # 상품별로 리뷰 그룹화
+        product_reviews = {}
+        for review in review_rows:
+            product_id = review.get('product_id', 'unknown')
+            if product_id not in product_reviews:
+                product_reviews[product_id] = []
+            product_reviews[product_id].append(review)
+
+        uploaded_files = []
+        # 각 상품별로 개별 파일 업로드
+        for product_id, reviews in product_reviews.items():
+            filename = f"{product_id}_{timestamp}.csv"
+            gcs_path = f"raw-data/musinsa/reviews/{product_id}/{year}/{month}/{day}/{filename}"
+
+            df = pd.DataFrame(reviews)
+            success = upload_csv_to_gcs(bucket_name, df, gcs_path, os.environ.get("GCS_PROJECT_ID"))
+
+            if success:
+                uploaded_files.append(gcs_path)
+                logger.info(f"상품 {product_id} 리뷰 업로드 완료: {len(reviews)}개")
+
+        return len(uploaded_files) > 0
 
     except Exception as e:
         logger.error(f"리뷰 데이터 GCS 업로드 실패: {e}")

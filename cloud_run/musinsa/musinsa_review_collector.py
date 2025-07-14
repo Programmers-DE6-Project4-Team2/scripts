@@ -14,10 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class MusinsaReviewCollector:
-    def __init__(self, session: requests.Session, product_ids: List[str],
-                 review_page_size: int = 20, review_max_pages: int = 50,
-                 sort: str = "up_cnt_desc", my_filter: str = "false",
-                 has_photo: str = "false", is_experience: str = "false"):
+    def __init__(
+            self, session: requests.Session, product_ids: List[str],
+             review_page_size: int = 20, review_max_pages: int = 50,
+             sort: str = "up_cnt_desc", my_filter: str = "false",
+             has_photo: str = "false", is_experience: str = "false",
+             category_code: str = "unknown"
+    ):
         self.session = session
         self.product_ids = product_ids
         self.review_page_size = review_page_size
@@ -26,6 +29,10 @@ class MusinsaReviewCollector:
         self.my_filter = my_filter
         self.has_photo = has_photo
         self.is_experience = is_experience
+
+        self.category_code = category_code
+        from utils import CATEGORY_MAPPING
+        self.category_name = CATEGORY_MAPPING.get(category_code, 'Unknown')
 
         # 환경변수 기반 설정 추가
         self.request_delay = float(os.environ.get("REQUEST_DELAY", "1.0"))
@@ -84,6 +91,8 @@ class MusinsaReviewCollector:
 
                 for review in review_list:
                     review['scraped_at'] = scraped_at
+                    review['category_code'] = self.category_code
+                    review['category_name'] = self.category_name
 
                 reviews.extend(review_list)
                 logger.info(f"상품 {goods_no}의 {page}페이지에서 {len(review_list)}개 리뷰 수집")
