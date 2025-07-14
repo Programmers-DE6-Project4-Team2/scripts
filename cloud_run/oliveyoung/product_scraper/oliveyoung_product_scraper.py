@@ -3,7 +3,7 @@
 올리브영 크롤러 메인 실행 스크립트
 """
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from oliveyoung_scraper_module import OliveYoungProductScraper
 import logging
 
@@ -37,7 +37,7 @@ def main():
             return
         
         # 타임스탬프 생성
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         
         # 상품 목록 저장
         products_file = f"{data_dir}/products_{timestamp}.csv"
