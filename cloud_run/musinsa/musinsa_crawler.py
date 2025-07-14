@@ -48,71 +48,103 @@ class MusinsaCrawler:
         return session
 
     def crawl_single_category_ranking(self, category_code: str) -> Dict:
-        """단일 카테고리 랭킹만 크롤링 (Airflow Task용)"""
+        """단일 카테고리 랭킹만 크롤링 (Airflow Dynamic Task Mapping용)"""
         logger.info(f"카테고리 {category_code} 랭킹 크롤링 시작")
 
-        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        ranking_collector = MusinsaRankingCollector(
-            session=self.session,
-            section_id=self.section_id,
-            size=self.size,
-            category_code=category_code,
-            max_pages=self.max_pages,
-            created_at=created_at
-        )
+            ranking_collector = MusinsaRankingCollector(
+                session=self.session,
+                section_id=self.section_id,
+                size=self.size,
+                category_code=category_code,
+                max_pages=self.max_pages,
+                created_at=created_at
+            )
 
-        all_products = []
-        for page in range(1, self.max_pages + 1):
-            data = ranking_collector.fetch_products_page(page)
-            if not data:
-                break
-            products = ranking_collector.parse_api_response(data, page)
-            if not products:
-                break
-            all_products.extend(products)
+            all_products = []
+            for page in range(1, self.max_pages + 1):
+                data = ranking_collector.fetch_products_page(page)
+                if not data:
+                    break
+                products = ranking_collector.parse_api_response(data, page)
+                if not products:
+                    break
+                all_products.extend(products)
 
-        return {
-            'category_code': category_code,
-            'category_name': CATEGORY_MAPPING.get(category_code, 'Unknown'),
-            'products': all_products,
-            'product_count': len(all_products)
-        }
+            # product_ids 추출 (Airflow XCom용)
+            product_ids = [p['product_id'] for p in all_products if p.get('product_id')]
+
+            return {
+                'status': 'success',
+                'category_code': category_code,
+                'category_name': CATEGORY_MAPPING.get(category_code, 'Unknown'),
+                'products': all_products,
+                'product_ids': product_ids,  # Airflow 전달용
+                'product_count': len(all_products),
+                'created_at': created_at
+            }
+
+        except Exception as e:
+            logger.error(f"카테고리 {category_code} 랭킹 크롤링 실패: {e}")
+            return {
+                'status': 'error',
+                'category_code': category_code,
+                'products': [],
+                'product_ids': [],
+                'product_count': 0,
+                'error_message': str(e)
+            }
 
     def crawl_review_batch(self, product_ids: List[str], batch_info: Dict = None) -> Dict:
-        """상품 ID 배치별 리뷰 크롤링 (Airflow Task용)"""
+        """상품 ID 배치별 리뷰 크롤링 (Airflow 배치 처리용)"""
         batch_index = batch_info.get('batch_index', 0) if batch_info else 0
         category_code = batch_info.get('category_code', 'unknown') if batch_info else 'unknown'
 
         logger.info(f"배치 {batch_index} 리뷰 크롤링 시작 - {len(product_ids)}개 상품")
 
-        if not product_ids:
+        try:
+            if not product_ids:
+                return {
+                    'status': 'success',
+                    'batch_index': batch_index,
+                    'category_code': category_code,
+                    'reviews': {},
+                    'review_count': 0
+                }
+
+            review_collector = MusinsaReviewCollector(
+                session=self.session,
+                product_ids=product_ids,
+                review_page_size=self.review_page_size,
+                review_max_pages=self.review_max_pages
+            )
+
+            reviews = review_collector.collect_all_reviews()
+            total_reviews = sum(len(review_list) for review_list in reviews.values())
+
+            logger.info(f"배치 {batch_index} 리뷰 크롤링 완료 - {total_reviews}개 리뷰")
+
             return {
+                'status': 'success',
+                'batch_index': batch_index,
+                'category_code': category_code,
+                'reviews': reviews,
+                'review_count': total_reviews,
+                'product_count': len(product_ids)
+            }
+
+        except Exception as e:
+            logger.error(f"배치 {batch_index} 리뷰 크롤링 실패: {e}")
+            return {
+                'status': 'error',
                 'batch_index': batch_index,
                 'category_code': category_code,
                 'reviews': {},
-                'review_count': 0
+                'review_count': 0,
+                'error_message': str(e)
             }
-
-        review_collector = MusinsaReviewCollector(
-            session=self.session,
-            product_ids=product_ids,
-            review_page_size=self.review_page_size,
-            review_max_pages=self.review_max_pages
-        )
-
-        reviews = review_collector.collect_all_reviews()
-        total_reviews = sum(len(review_list) for review_list in reviews.values())
-
-        logger.info(f"배치 {batch_index} 리뷰 크롤링 완료 - {total_reviews}개 리뷰")
-
-        return {
-            'batch_index': batch_index,
-            'category_code': category_code,
-            'reviews': reviews,
-            'review_count': total_reviews,
-            'product_count': len(product_ids)
-        }
 
     def get_product_ids_from_category(self, category_code: str) -> List[str]:
         """카테고리에서 product_ids만 추출 (중간 데이터 전달용)"""

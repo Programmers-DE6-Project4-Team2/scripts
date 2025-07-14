@@ -1,11 +1,8 @@
-# Python 3.9 slim 이미지 사용
 FROM python:3.9-slim
 
-# 메타데이터 설정
 LABEL maintainer="de6-ez-team"
 LABEL description="Musinsa Data Crawler Cloud Run Job with GCS Integration"
 
-# 작업 디렉토리 설정
 WORKDIR /app
 
 # 시스템 패키지 업데이트 및 필수 도구 설치
@@ -24,6 +21,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # 환경변수 설정
 ENV PYTHONPATH=/app
 ENV ENV=cloud_run_job
+
+# Cloud Run Job + Airflow DAG 통합용 환경변수 기본값
+ENV JOB_TYPE=product
+ENV LOG_LEVEL=INFO
+ENV REQUEST_DELAY=1.0
+ENV MAX_PAGES=8
+ENV REVIEW_PAGES=25
 
 # 데이터 디렉토리 생성
 RUN mkdir -p /app/data /app/logs
