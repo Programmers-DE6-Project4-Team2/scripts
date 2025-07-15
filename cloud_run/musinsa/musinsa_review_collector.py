@@ -8,7 +8,8 @@ import requests
 import json
 import time
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
+from utils import CATEGORY_MAPPING
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,6 @@ class MusinsaReviewCollector:
         self.is_experience = is_experience
 
         self.category_code = category_code
-        from utils import CATEGORY_MAPPING
         self.category_name = CATEGORY_MAPPING.get(category_code, 'Unknown')
 
         # 환경변수 기반 설정 추가

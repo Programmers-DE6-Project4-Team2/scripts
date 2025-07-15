@@ -119,7 +119,8 @@ class MusinsaCrawler:
                 session=self.session,
                 product_ids=product_ids,
                 review_page_size=self.review_page_size,
-                review_max_pages=self.review_max_pages
+                review_max_pages=self.review_max_pages,
+                category_code=category_code
             )
 
             reviews = review_collector.collect_all_reviews()

@@ -12,6 +12,8 @@ import logging
 import re
 from typing import List, Dict, Optional
 
+from utils import CATEGORY_MAPPING
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +89,8 @@ class MusinsaRankingCollector:
             for idx, item in enumerate(product_items):
                 product = self.parse_product_item(item, (page - 1) * self.size + idx + 1)
                 product['scraped_at'] = self.scraped_at
+                product['category_name'] = CATEGORY_MAPPING.get(self.category_code, f"category_{self.category_code}")
+                product['category_code'] = self.category_code
                 if product:
                     products.append(product)
 
@@ -111,8 +115,8 @@ class MusinsaRankingCollector:
                 'image_url': '',
                 'product_url': '',
                 'product_id': '',
-                'number_of_views': 0,  # 새로 추가
-                'sales': 0  # 새로 추가
+                'number_of_views': 0,
+                'sales': 0
             }
 
             # 기본 상품 정보 추출
@@ -165,8 +169,6 @@ class MusinsaRankingCollector:
                 if not product['rating']:
                     product['rating'] = image_event.get('reviewScore', '')
 
-            # ===== 새로 추가된 부분 =====
-
             # 1. number_of_views 추출 (info.additionalInformation에서)
             additional_info = info.get('additionalInformation', [])
             if additional_info:
@@ -196,8 +198,6 @@ class MusinsaRankingCollector:
                         float_value = float(sales_match.group(1))
                         product['sales'] = int(float_value * 1000)  # float * 1000
                         break
-
-            # ===== 새로 추가된 부분 끝 =====
 
             if product['name'] and product['brand']:
                 return product
