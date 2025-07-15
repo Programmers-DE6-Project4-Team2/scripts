@@ -1,23 +1,31 @@
-# run_review_crawler.py
-import argparse
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from naver_review_crawler import collect_and_save
 
+def get_env_var(name: str, required=True, default: str = None) -> str:
+    value = os.getenv(name, default)
+    if required and not value:
+        raise ValueError(f"❌ 환경 변수 '{name}'가 설정되지 않았습니다.")
+    return value
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--bucket", required=True, help="GCS 버킷 이름")
-    parser.add_argument("--category", required=True, help="카테고리 이름 (예: skincare)")
-    parser.add_argument("--product-id", required=True, help="상품 ID")
-    parser.add_argument("--product-url", required=True, help="상품 상세 페이지 URL")
-    args = parser.parse_args()
+    # ✅ 환경 변수로부터 값 읽기
+    product_id = get_env_var("PRODUCT_ID")
+    product_url = get_env_var("PRODUCT_URL")
+    category = get_env_var("CATEGORY")
+    bucket_name = get_env_var("BUCKET_NAME")
+    sort_type = get_env_var("REVIEW_SORT", required=False, default="최신순")  # 🔹 기본은 최신순
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    # ✅ 타임스탬프 생성
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
 
+    # ✅ 리뷰 수집 실행
     collect_and_save(
-        product_id=args.product_id,
-        category_name=args.category,
-        product_url=args.product_url,
-        bucket_name=args.bucket,
+        product_id=product_id,
+        category_name=category,
+        product_url=product_url,
+        bucket_name=bucket_name,
         timestamp=timestamp,
-        max_reviews=200  # 🔁 매번 200개씩만 수집
+        max_reviews=200,
+        sort_option=sort_type 
     )

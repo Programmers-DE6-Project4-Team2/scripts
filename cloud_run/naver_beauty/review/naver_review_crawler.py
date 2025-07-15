@@ -4,6 +4,7 @@ import os
 import time
 import tempfile
 from typing import List, Dict
+from datetime import datetime, timezone
 import pandas as pd
 
 from selenium import webdriver
@@ -89,14 +90,14 @@ def parse_review_element(element) -> Dict:
     return {
         "review_id": review_id,
         "username": username,
-        "created_at": created_at,
+        "created_at": created_at,  # ✅ 작성 시각
+        "scraped_at": datetime.now(timezone.utc).isoformat(),  # ✅ 수집 시각 (UTC)
         "rating": rating,
         "content": content,
         "option": option
     }
 
-# ✅ 한 페이지 리뷰 추출
-def extract_reviews_from_page(driver) -> List[Dict]:
+def extract_reviews_from_page(driver, category_name: str, product_id: str, sort_option: str) -> List[Dict]:
     logging.info("⏳ 리뷰 요소 로딩 대기 중...")
     reviews = []
 
@@ -115,6 +116,9 @@ def extract_reviews_from_page(driver) -> List[Dict]:
 
             review = parse_review_element(element)
             if review.get("content"):
+                review["category"] = category_name         
+                review["product_id"] = product_id   
+                review["sort_option"] = sort_option         
                 reviews.append(review)
         except Exception as e:
             logging.warning(f"❌ 리뷰 파싱 실패: {e}")
@@ -124,7 +128,7 @@ def extract_reviews_from_page(driver) -> List[Dict]:
 
 # ✅ 전체 리뷰 수집 흐름
 def collect_and_save(product_id: str, category_name: str, product_url: str,
-                     bucket_name: str, timestamp: str, max_reviews: int = 200):
+                     bucket_name: str, timestamp: str, max_reviews: int = 200, sort_option: str = "최신순"):
     logging.info(f"🔍 리뷰 수집 시작: [{category_name}] {product_id}")
     reviews = []
     MAX_PAGES = 20
@@ -170,7 +174,8 @@ def collect_and_save(product_id: str, category_name: str, product_url: str,
                 time.sleep(2)
 
                 # ✅ 정렬: 최신순 클릭
-                click_sort_option(driver, text="최신순")
+                click_sort_option(driver, text=sort_option)  # ✅ 외부 인자로부터 받은 정렬 방식 사용
+
 
             except TimeoutException:
                 logging.warning(f"❌ 리뷰 탭 클릭 실패: {product_id} → 페이지 {page} 건너뜀")
@@ -189,7 +194,7 @@ def collect_and_save(product_id: str, category_name: str, product_url: str,
                     break
 
             logging.info(f"🔎 페이지 {page} 리뷰 추출 시작")
-            new_reviews = extract_reviews_from_page(driver)
+            new_reviews = extract_reviews_from_page(driver, category_name, product_id, sort_option)
 
             if not new_reviews:
                 logging.warning(f"⚠️ 페이지 {page}에서 리뷰 없음 또는 로딩 실패 → 건너뜀")
@@ -219,7 +224,12 @@ def save_reviews(reviews: List[Dict], bucket_name: str, category_name: str,
         df.to_csv(tmp.name, index=False)
         tmp_path = tmp.name
 
-    blob_path = f"raw-data/naver/{category_name}/reviews/{product_id}/{timestamp}_reviews.csv"
+    dt = datetime.strptime(timestamp, "%Y%m%d_%H%M")
+    year = dt.strftime("%Y")
+    month = dt.strftime("%m")
+    day = dt.strftime("%d")
+
+    blob_path = f"raw-data/naver/reviews/{product_id}/{year}/{month}/{day}/{product_id}_{timestamp}.csv"
     upload_to_gcs(bucket_name, content=tmp_path, blob_path=blob_path, content_type="text/csv", from_bytes=False)
     logging.info(f"📤 업로드 완료: gs://{bucket_name}/{blob_path}")
     os.remove(tmp_path)
