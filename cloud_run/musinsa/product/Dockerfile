@@ -22,12 +22,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 ENV PYTHONPATH=/app
 ENV ENV=cloud_run_job
 
-# Cloud Run Job + Airflow DAG 통합용 환경변수 기본값
-ENV JOB_TYPE=product
 ENV LOG_LEVEL=INFO
 ENV REQUEST_DELAY=1.0
 ENV MAX_PAGES=8
-ENV REVIEW_PAGES=25
 
 # 데이터 디렉토리 생성
 RUN mkdir -p /app/data /app/logs
