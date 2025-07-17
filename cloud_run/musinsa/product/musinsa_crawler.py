@@ -1,36 +1,56 @@
 #!/usr/bin/env python3
 
 """
-무신사 랭킹 수집기
+무신사 크롤러 메인 (카테고리별 수집)
 """
-from datetime import datetime, timezone
+import json
+import re
 
 import requests
-import json
-import time
 import logging
-import re
-from typing import List, Dict, Optional
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
+from fake_useragent import UserAgent
 
 from utils import CATEGORY_MAPPING
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class MusinsaRankingCollector:
-    def __init__(
-            self, session: requests.Session, section_id: str = "231", size: int = 40,
-            category_code: str = "104001", max_pages: int = 5, scraped_at: str = None
-    ):
-        self.session = session
-        self.size = size
+class MusinsaProductCrawler:
+    def __init__(self, section_id: str = "231", size: int = 40,
+                 max_pages: int = 5, category_code: str = "104001"):
+        self.session = self._setup_session()
         self.section_id = section_id
-        self.category_code = category_code
+        self.size = size
         self.max_pages = max_pages
-        self.scraped_at = scraped_at or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        self.scraped_at = None
+        self.category_code = category_code
 
-    def build_api_url(self, page: int = 1) -> str:
+
+    def _setup_session(self) -> requests.Session:
+        """세션 설정"""
+        ua = UserAgent()
+        headers = {
+            'User-Agent': ua.random,
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Referer': 'https://www.musinsa.com/main/beauty/ranking',
+            'Origin': 'https://www.musinsa.com',
+        }
+
+        session = requests.Session()
+        session.headers.update(headers)
+        logger.info("세션 설정 완료")
+        return session
+
+    def _build_api_url(self, page: int = 1) -> str:
         """API URL 생성"""
+        if not self.category_code:
+            raise ValueError("category_code가 설정되지 않았습니다.")
         base_url = f"https://api.musinsa.com/api2/hm/web/v5/pans/ranking/sections/{self.section_id}"
         params = {
             'storeCode': 'beauty',
@@ -48,7 +68,7 @@ class MusinsaRankingCollector:
 
     def fetch_products_page(self, page: int = 1) -> Optional[Dict]:
         """단일 페이지 상품 데이터 수집"""
-        url = self.build_api_url(page)
+        url = self._build_api_url(page)
         try:
             logger.info(f"API 요청: {url}")
             response = self.session.get(url, timeout=10)
@@ -205,3 +225,40 @@ class MusinsaRankingCollector:
         except Exception as e:
             logger.warning(f"상품 파싱 중 오류: {e}")
             return None
+
+    def crawl_single_category_ranking(self) -> Dict:
+        """단일 카테고리 랭킹만 크롤링 (Airflow Dynamic Task Mapping용)"""
+        logger.info(f"카테고리 {self.category_code} 랭킹 크롤링 시작")
+
+        try:
+            self.scraped_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+            all_products = []
+            for page in range(1, self.max_pages + 1):
+                data = self.fetch_products_page(page)
+                if not data:
+                    break
+                products = self.parse_api_response(data, page)
+                if not products:
+                    break
+                all_products.extend(products)
+
+            return {
+                'status': 'success',
+                'category_code': self.category_code,
+                'category_name': CATEGORY_MAPPING.get(self.category_code, 'Unknown'),
+                'products': all_products,
+                'product_count': len(all_products),
+                'scraped_at': self.scraped_at
+            }
+
+        except Exception as e:
+            logger.error(f"카테고리 {self.category_code} 랭킹 크롤링 실패: {e}")
+            return {
+                'status': 'error',
+                'category_code': self.category_code,
+                'products': [],
+                'product_ids': [],
+                'product_count': 0,
+                'error_message': str(e)
+            }
