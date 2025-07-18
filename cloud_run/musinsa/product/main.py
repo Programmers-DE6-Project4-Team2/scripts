@@ -15,7 +15,7 @@ import pandas as pd
 if os.environ.get("ENV", "").lower() != "production":
     load_dotenv()
 
-from musinsa_crawler import MusinsaProductCrawler
+from musinsa_product_crawler import MusinsaProductCrawler
 from utils import CATEGORY_MAPPING
 from gcs_uploader import upload_csv_to_gcs
 
@@ -90,6 +90,7 @@ def upload_products_to_gcs(result, category_code):
 
     try:
         category_name = CATEGORY_MAPPING.get(category_code, f"category_{category_code}")
+        category_name = category_name.replace("/", "&")
         now_utc = datetime.now(timezone.utc)
         year = now_utc.strftime("%Y")
         month = now_utc.strftime("%m")
