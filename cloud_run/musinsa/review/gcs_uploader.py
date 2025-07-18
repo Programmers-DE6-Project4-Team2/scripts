@@ -98,32 +98,6 @@ def upload_file_to_gcs(bucket_name: str, source_file_name: str,
         return False
 
 
-def download_json_from_gcs(bucket_name: str, source_blob_name: str,
-                           project_id: Optional[str] = None) -> Any:
-    """GCS에서 JSON 데이터 다운로드"""
-    try:
-        # GCS 클라이언트 생성
-        if project_id:
-            client = storage.Client(project=project_id)
-        else:
-            client = storage.Client()
-
-        # 버킷과 blob 객체 생성
-        bucket = client.bucket(bucket_name)
-        blob = bucket.blob(source_blob_name)
-
-        # JSON 데이터 다운로드 및 파싱
-        json_string = blob.download_as_text()
-        data = json.loads(json_string)
-
-        logger.info(f"JSON 파일 GCS 다운로드 완료: {source_blob_name}")
-        return data
-
-    except Exception as e:
-        logger.error(f"JSON 파일 GCS 다운로드 실패: {source_blob_name}, 오류: {str(e)}")
-        return None
-
-
 def check_blob_exists(bucket_name: str, blob_name: str, project_id: Optional[str] = None) -> bool:
     """GCS에 파일이 존재하는지 확인"""
     try:
@@ -169,26 +143,4 @@ def delete_blob_from_gcs(bucket_name: str, blob_name: str, project_id: Optional[
 
     except Exception as e:
         logger.error(f"파일 GCS 삭제 실패: {blob_name}, 오류: {str(e)}")
-        return False
-
-
-# 테스트용 함수 (선택사항)
-def test_gcs_connection(bucket_name: str, project_id: Optional[str] = None) -> bool:
-    """GCS 연결 테스트"""
-    try:
-        # GCS 클라이언트 생성
-        if project_id:
-            client = storage.Client(project=project_id)
-        else:
-            client = storage.Client()
-
-        # 버킷 접근 테스트
-        bucket = client.bucket(bucket_name)
-        bucket.reload()
-
-        logger.info(f"GCS 연결 테스트 성공: {bucket_name}")
-        return True
-
-    except Exception as e:
-        logger.error(f"GCS 연결 테스트 실패: {bucket_name}, 오류: {str(e)}")
         return False
