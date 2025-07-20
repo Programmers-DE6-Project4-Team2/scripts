@@ -1,3 +1,4 @@
+# 전체 코드
 import logging
 import sys
 import os
@@ -23,7 +24,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
-# ✅ 요소 로딩 여부 판단
 def elements_loaded(driver, selector: str) -> bool:
     try:
         elements = driver.find_elements(By.CSS_SELECTOR, selector)
@@ -32,9 +32,7 @@ def elements_loaded(driver, selector: str) -> bool:
         logging.warning(f"❌ elements_loaded() 내부 오류: {e}")
         return False
 
-# ✅ 공통 대기 함수
 def wait_for_elements(driver, selector: str, timeout: int = 15, wait_time: float = 3) -> bool:
-    start = time.time()
     try:
         WebDriverWait(driver, timeout).until(lambda d: elements_loaded(d, selector))
         time.sleep(wait_time)
@@ -43,19 +41,16 @@ def wait_for_elements(driver, selector: str, timeout: int = 15, wait_time: float
         logging.warning(f"⚠️ 요소 로딩 실패: {selector}")
         return False
 
-# ✅ 리뷰 정렬 옵션 클릭 함수
 def click_sort_option(driver, text: str = "최신순"):
     try:
         sort_button = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable((By.XPATH, f'//ul[contains(@class, "KQTUBC8Cw8")]//a[text()="{text}"]'))
         )
         driver.execute_script("arguments[0].click();", sort_button)
-        # logging.info(f"✅ 리뷰 정렬 '{text}' 클릭 완료")
         time.sleep(2)
     except Exception as e:
         logging.warning(f"⚠️ 리뷰 정렬 '{text}' 클릭 실패: {e}")
 
-# ✅ 리뷰 파싱
 def parse_review_element(element) -> Dict:
     def safe_find(selector, by=By.CSS_SELECTOR, many=False):
         try:
@@ -90,22 +85,20 @@ def parse_review_element(element) -> Dict:
     return {
         "review_id": review_id,
         "username": username,
-        "created_at": created_at,  # ✅ 작성 시각
-        "scraped_at": datetime.now(timezone.utc).isoformat(),  # ✅ 수집 시각 (UTC)
+        "created_at": created_at,
+        "scraped_at": datetime.now(timezone.utc).isoformat(),
         "rating": rating,
         "content": content,
         "option": option
     }
 
 def extract_reviews_from_page(driver, category_name: str, product_id: str, sort_option: str) -> List[Dict]:
-    logging.info("⏳ 리뷰 요소 로딩 대기 중...")
-    reviews = []
-
     if not wait_for_elements(driver, "li.BnwL_cs1av", timeout=15, wait_time=1.5):
         logging.warning("⚠️ 리뷰 요소 로딩 실패 → 페이지 건너뜀")
         return []
 
     review_elements = driver.find_elements(By.CSS_SELECTOR, "li.BnwL_cs1av")
+    reviews = []
 
     for element in review_elements:
         try:
@@ -116,9 +109,9 @@ def extract_reviews_from_page(driver, category_name: str, product_id: str, sort_
 
             review = parse_review_element(element)
             if review.get("content"):
-                review["category"] = category_name         
-                review["product_id"] = product_id   
-                review["sort_option"] = sort_option         
+                review["category"] = category_name
+                review["product_id"] = product_id
+                review["sort_option"] = sort_option
                 reviews.append(review)
         except Exception as e:
             logging.warning(f"❌ 리뷰 파싱 실패: {e}")
@@ -126,99 +119,95 @@ def extract_reviews_from_page(driver, category_name: str, product_id: str, sort_
 
     return reviews
 
-# ✅ 전체 리뷰 수집 흐름
 def collect_and_save(product_id: str, category_name: str, product_url: str,
-                     bucket_name: str, timestamp: str, max_reviews: int = 200, sort_option: str = "최신순"):
+                     bucket_name: str, timestamp: str, max_reviews: int = 100, sort_option: str = "랭킹순"):
     logging.info(f"🔍 리뷰 수집 시작: [{category_name}] {product_id}")
     reviews = []
-    MAX_PAGES = 20
+    MAX_PAGES = 10
+    empty_page_streak = 0
+    MAX_EMPTY_PAGES = 3
 
-    for page in range(1, MAX_PAGES + 1):
-        if len(reviews) >= max_reviews:
-            logging.info("✅ 최대 리뷰 수 도달 → 종료")
-            break
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-popup-blocking")
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-sync")
+    options.add_argument("--disable-translate")
+    options.add_argument("--disable-features=NetworkService")
+    options.add_argument("--no-first-run")
 
-        logging.info(f"🔁 [페이지 {page}] 수집을 위한 드라이버 초기화")
+    driver = webdriver.Chrome(options=options)
 
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-popup-blocking")
-        options.add_argument("--blink-settings=imagesEnabled=false")
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-sync")
-        options.add_argument("--disable-translate")
-        options.add_argument("--disable-features=NetworkService")
-        options.add_argument("--no-first-run")
-
-        driver = webdriver.Chrome(options=options)
+    try:
+        driver.get(product_url)
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        time.sleep(2)
 
         try:
-            driver.get(product_url)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            review_tab = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, '//a[contains(text(), "리뷰")]'))
+            )
+            try:
+                review_tab.click()
+            except:
+                driver.execute_script("arguments[0].click();", review_tab)
             time.sleep(2)
 
-            # 리뷰 탭 클릭
-            try:
-                review_tab = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, '//a[contains(text(), "리뷰")]'))
-                )
-                try:
-                    review_tab.click()
-                except:
-                    driver.execute_script("arguments[0].click();", review_tab)
-                time.sleep(2)
+            click_sort_option(driver, text=sort_option)
+        except TimeoutException:
+            logging.warning(f"❌ 리뷰 탭 클릭 실패: {product_id}")
+            return
 
-                # ✅ 정렬: 최신순 클릭
-                click_sort_option(driver, text=sort_option)  # ✅ 외부 인자로부터 받은 정렬 방식 사용
-
-
-            except TimeoutException:
-                logging.warning(f"❌ 리뷰 탭 클릭 실패: {product_id} → 페이지 {page} 건너뜀")
-                continue
-
-            # "다음" 버튼 page-1번 클릭
-            for _ in range(1, page):
-                try:
-                    next_btn = WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, '//a[text()="다음"]'))
-                    )
-                    driver.execute_script("arguments[0].click();", next_btn)
-                    time.sleep(1.5)
-                except Exception as e:
-                    logging.warning(f"⚠️ 페이지 {page} 이동 중 '다음' 버튼 클릭 실패: {e}")
-                    break
+        for page in range(1, MAX_PAGES + 1):
+            if len(reviews) >= max_reviews:
+                logging.info("✅ 최대 리뷰 수 도달 → 종료")
+                break
 
             logging.info(f"🔎 페이지 {page} 리뷰 추출 시작")
             new_reviews = extract_reviews_from_page(driver, category_name, product_id, sort_option)
 
             if not new_reviews:
-                logging.warning(f"⚠️ 페이지 {page}에서 리뷰 없음 또는 로딩 실패 → 건너뜀")
+                empty_page_streak += 1
+                logging.warning(f"⚠️ 페이지 {page} 리뷰 없음 (연속 없음 {empty_page_streak}회)")
+                if empty_page_streak >= MAX_EMPTY_PAGES:
+                    logging.warning("🚫 연속 빈 페이지 3회 → 종료")
+                    break
                 continue
+            else:
+                empty_page_streak = 0
 
             reviews.extend(new_reviews)
-            #logging.info(f"📄 페이지 {page}에서 {len(new_reviews)}개 리뷰 추출됨")
             logging.info(f"🔁 총 누적 리뷰 수: {len(reviews)}")
 
-        except Exception as e:
-            logging.error(f"❌ 페이지 {page} 처리 중 예외 발생: {e}")
-            continue
-        finally:
-            driver.quit()
+            try:
+                next_btn = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, '//a[text()="다음"]'))
+                )
+                driver.execute_script("arguments[0].click();", next_btn)
+                time.sleep(1.5)
+            except Exception as e:
+                logging.warning(f"⚠️ 페이지 {page} → 다음 클릭 실패: {e}")
+                break
+
+    except Exception as e:
+        logging.error(f"❌ 수집 중 예외 발생: {e}")
+    finally:
+        driver.quit()
+
+    if not reviews:
+        logging.info(f"🧩 리뷰 없음 → 저장 없이 종료: {product_id}")
+        return
 
     save_reviews(reviews, bucket_name, category_name, product_id, timestamp, max_reviews)
 
-# ✅ 결과 저장
 def save_reviews(reviews: List[Dict], bucket_name: str, category_name: str,
                  product_id: str, timestamp: str, max_reviews: int):
-    if not reviews:
-        logging.warning(f"⚠️ 수집된 리뷰 없음: {product_id}")
-        return
-
     df = pd.DataFrame(reviews[:max_reviews])
     with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", encoding="utf-8-sig", delete=False) as tmp:
         df.to_csv(tmp.name, index=False)
@@ -233,4 +222,3 @@ def save_reviews(reviews: List[Dict], bucket_name: str, category_name: str,
     upload_to_gcs(bucket_name, content=tmp_path, blob_path=blob_path, content_type="text/csv", from_bytes=False)
     logging.info(f"📤 업로드 완료: gs://{bucket_name}/{blob_path}")
     os.remove(tmp_path)
-
