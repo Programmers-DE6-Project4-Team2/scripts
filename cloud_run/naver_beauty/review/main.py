@@ -14,8 +14,8 @@ if __name__ == "__main__":
     product_url = get_env_var("PRODUCT_URL")
     category = get_env_var("CATEGORY")
     bucket_name = get_env_var("BUCKET_NAME")
-    sort_type = get_env_var("SORT_OPTION", required=False, default="최신순")  # ✅ 이름 통일
-    max_reviews = int(get_env_var("MAX_REVIEWS", required=False, default="200"))  # ✅ 숫자 변환
+    sort_type = get_env_var("SORT_OPTION", required=False, default="랭킹순")  # ✅ 이름 통일
+    max_reviews = int(get_env_var("MAX_REVIEWS", required=False, default="100"))  # ✅ 숫자 변환
 
     # ✅ 타임스탬프 생성
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
