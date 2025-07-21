@@ -218,7 +218,7 @@ def save_reviews(reviews: List[Dict], bucket_name: str, category_name: str,
     month = dt.strftime("%m")
     day = dt.strftime("%d")
 
-    blob_path = f"raw-data/naver/reviews/{product_id}/{year}/{month}/{day}/{product_id}_{timestamp}.csv"
+    blob_path = f"raw-data/naver/reviews/{year}/{month}/{day}/{product_id}/{product_id}_{timestamp}.csv"
     upload_to_gcs(bucket_name, content=tmp_path, blob_path=blob_path, content_type="text/csv", from_bytes=False)
     logging.info(f"📤 업로드 완료: gs://{bucket_name}/{blob_path}")
     os.remove(tmp_path)
