@@ -150,7 +150,7 @@ def upload_reviews_to_gcs(result):
 
         # GCS 경로 및 파일명 생성
         filename = f"{product_id}_{timestamp}.csv"
-        gcs_path = f"raw-data/musinsa/reviews/{product_id}/{year}/{month}/{day}/{filename}"
+        gcs_path = f"raw-data/musinsa/reviews/{year}/{month}/{day}/{product_id}/{filename}"
 
         # DataFrame으로 변환 후 GCS 업로드
         df = pd.DataFrame(review_rows)
