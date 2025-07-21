@@ -68,7 +68,7 @@ def scrape_reviews(product_id: str, product_url: str, max_pages: int = 1):
             now = datetime.now(timezone.utc)
             year, month, day = now.strftime("%Y"), now.strftime("%m"), now.strftime("%d")
             timestamp = now.strftime("%Y%m%d_%H%M%S")
-            file_path = f"raw-data/olive-young/reviews/{product_id}/{year}/{month}/{day}/{product_id}_{timestamp}.csv"
+            file_path = f"raw-data/olive-young/reviews/{year}/{month}/{day}/{product_id}/{product_id}_{timestamp}.csv"
 
             upload_result = gcs_uploader.upload_csv(reviews, file_path)
 
