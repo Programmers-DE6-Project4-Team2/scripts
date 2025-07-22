@@ -1,0 +1,124 @@
+name: Deploy Crawlers to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/cloud_run/**'
+
+jobs:
+  deploy-crawlers:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crawler:
+          - platform: oliveyoung
+            type: product
+            path: scripts/cloud_run/oliveyoung/product
+            repo: oliveyoung-crawler-repo
+            image: product-crawler
+            job: oliveyoung-product-crawler-job
+          - platform: oliveyoung
+            type: review
+            path: scripts/cloud_run/oliveyoung/review
+            repo: oliveyoung-crawler-repo
+            image: review-crawler
+            job: oliveyoung-review-crawler-job
+          - platform: musinsa
+            type: product
+            path: scripts/cloud_run/musinsa/product
+            repo: musinsa-crawler-repo
+            image: musinsa-product-crawler
+            job: musinsa-product-job
+          - platform: musinsa
+            type: review
+            path: scripts/cloud_run/musinsa/review
+            repo: musinsa-crawler-repo
+            image: musinsa-review-crawler
+            job: musinsa-review-job
+          - platform: naver_beauty
+            type: product
+            path: scripts/cloud_run/naver_beauty/product
+            repo: naver-crawler-repo
+            image: naver-product-crawler
+            job: naver-product-job
+          - platform: naver_beauty
+            type: review
+            path: scripts/cloud_run/naver_beauty/review
+            repo: naver-crawler-repo
+            image: naver-review-crawler
+            job: naver-review-job
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Google Cloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: de6-2ez
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+
+      - name: Check for changes in crawler directory
+        id: changes
+        run: |
+          echo "Checking changes in ${{ matrix.crawler.path }}"
+          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep "^${{ matrix.crawler.path }}/" || true)
+          if [[ -z "$CHANGED" ]]; then
+            echo "No changes detected in ${{ matrix.crawler.path }}, skipping deployment"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected in ${{ matrix.crawler.path }}, proceeding with deployment"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete existing Docker image
+        if: steps.changes.outputs.skip == 'false'
+        continue-on-error: true
+        run: |
+          echo "Deleting existing image: asia-northeast3-docker.pkg.dev/de6-2ez/${{ matrix.crawler.repo }}/${{ matrix.crawler.image }}"
+          gcloud artifacts docker images delete \
+            asia-northeast3-docker.pkg.dev/de6-2ez/${{ matrix.crawler.repo }}/${{ matrix.crawler.image }} \
+            --delete-tags --quiet || true
+
+      - name: Build and push new Docker image
+        if: steps.changes.outputs.skip == 'false'
+        working-directory: ${{ matrix.crawler.path }}
+        run: |
+          IMAGE_URI=asia-northeast3-docker.pkg.dev/de6-2ez/${{ matrix.crawler.repo }}/${{ matrix.crawler.image }}
+          echo "Building and pushing image: $IMAGE_URI"
+          gcloud builds submit --tag $IMAGE_URI
+
+      - name: Delete existing Cloud Run Job
+        if: steps.changes.outputs.skip == 'false'
+        continue-on-error: true
+        run: |
+          echo "Deleting existing Cloud Run Job: ${{ matrix.crawler.job }}"
+          gcloud run jobs delete ${{ matrix.crawler.job }} \
+            --region=asia-northeast3 \
+            --quiet || true
+
+      - name: Create new Cloud Run Job
+        if: steps.changes.outputs.skip == 'false'
+        run: |
+          IMAGE_URI=asia-northeast3-docker.pkg.dev/de6-2ez/${{ matrix.crawler.repo }}/${{ matrix.crawler.image }}
+          echo "Creating Cloud Run Job: ${{ matrix.crawler.job }} with image: $IMAGE_URI"
+          gcloud run jobs create ${{ matrix.crawler.job }} \
+            --image=$IMAGE_URI \
+            --region=asia-northeast3 \
+            --memory=4Gi \
+            --cpu=1 \
+            --service-account=terraform-admin@de6-2ez.iam.gserviceaccount.com
+
+      - name: Deployment summary
+        if: steps.changes.outputs.skip == 'false'
+        run: |
+          echo "✅ Successfully deployed ${{ matrix.crawler.platform }} ${{ matrix.crawler.type }} crawler"
+          echo "   - Image: asia-northeast3-docker.pkg.dev/de6-2ez/${{ matrix.crawler.repo }}/${{ matrix.crawler.image }}"
+          echo "   - Job: ${{ matrix.crawler.job }}"
