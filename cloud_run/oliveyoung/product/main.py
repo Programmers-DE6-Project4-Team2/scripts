@@ -69,6 +69,5 @@ def main():
     finally:
         crawler.close()
 
-
 if __name__ == "__main__":
     main()
