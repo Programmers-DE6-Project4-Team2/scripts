@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 load_dotenv()
 
+
 def upload_csv_to_gcs(bucket_name: str, dataframe: pd.DataFrame, destination_blob_name: str):
     logger.info("🔄 [GCS] 업로드 시작...")
     client = storage.Client()
@@ -22,6 +23,7 @@ def upload_csv_to_gcs(bucket_name: str, dataframe: pd.DataFrame, destination_blo
     blob.upload_from_string(csv_data, content_type="text/csv")
     logger.info(f"✅ [GCS] 업로드 완료: gs://{bucket_name}/{destination_blob_name}")
     return f"gs://{bucket_name}/{destination_blob_name}"
+
 
 def main():
     # 명령행 인수 처리
@@ -66,6 +68,7 @@ def main():
 
     finally:
         crawler.close()
+
 
 if __name__ == "__main__":
     main()
