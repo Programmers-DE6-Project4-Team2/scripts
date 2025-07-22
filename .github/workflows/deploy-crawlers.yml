@@ -55,22 +55,11 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Debug Secret Status
-        run: |
-          echo "Checking if GCP_SA_KEY secret exists..."
-          if [[ -n "${{ secrets.GCP_SA_KEY }}" ]]; then
-            echo "✅ GCP_SA_KEY secret is set"
-            echo "Secret length: ${#GCP_SA_KEY}"
-          else
-            echo "❌ GCP_SA_KEY secret is NOT set or empty"
-          fi
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: de6-2ez
 
       - name: Set up Google Cloud
         uses: google-github-actions/setup-gcloud@v2
