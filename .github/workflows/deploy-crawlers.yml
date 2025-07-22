@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'scripts/cloud_run/**'
+      - 'cloud_run/**'
 
 jobs:
   deploy-crawlers:
@@ -14,37 +14,37 @@ jobs:
         crawler:
           - platform: oliveyoung
             type: product
-            path: scripts/cloud_run/oliveyoung/product
+            path: cloud_run/oliveyoung/product
             repo: oliveyoung-crawler-repo
             image: product-crawler
             job: oliveyoung-product-crawler-job
           - platform: oliveyoung
             type: review
-            path: scripts/cloud_run/oliveyoung/review
+            path: cloud_run/oliveyoung/review
             repo: oliveyoung-crawler-repo
             image: review-crawler
             job: oliveyoung-review-crawler-job
           - platform: musinsa
             type: product
-            path: scripts/cloud_run/musinsa/product
+            path: cloud_run/musinsa/product
             repo: musinsa-crawler-repo
             image: musinsa-product-crawler
             job: musinsa-product-job
           - platform: musinsa
             type: review
-            path: scripts/cloud_run/musinsa/review
+            path: cloud_run/musinsa/review
             repo: musinsa-crawler-repo
             image: musinsa-review-crawler
             job: musinsa-review-job
           - platform: naver_beauty
             type: product
-            path: scripts/cloud_run/naver_beauty/product
+            path: cloud_run/naver_beauty/product
             repo: naver-crawler-repo
             image: naver-product-crawler
             job: naver-product-job
           - platform: naver_beauty
             type: review
-            path: scripts/cloud_run/naver_beauty/review
+            path: cloud_run/naver_beauty/review
             repo: naver-crawler-repo
             image: naver-review-crawler
             job: naver-review-job
