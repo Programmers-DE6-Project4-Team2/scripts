@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 import pandas as pd
 from google.cloud import storage
-from oliveyoung_scraper_module import OliveYoungProductScraper
+from oliveyoung_crawler_module import OliveYoungProductCrawler
 from dotenv import load_dotenv
 
 # 로깅 설정
@@ -41,7 +41,7 @@ def main():
         raise ValueError("CATEGORY_URL이 필요합니다. 명령행 인수 또는 환경변수로 제공하세요.")
 
     logger.info(f"[START] category={category_name} max_pages={max_pages}")
-    crawler = OliveYoungProductScraper(headless=True)
+    crawler = OliveYoungProductCrawler(headless=True)
 
     try:
         # 1. 크롤링

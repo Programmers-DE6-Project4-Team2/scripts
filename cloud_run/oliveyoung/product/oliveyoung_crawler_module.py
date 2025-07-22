@@ -17,7 +17,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class OliveYoungProductScraper:
+class OliveYoungProductCrawler:
     def __init__(self, headless: bool = True):
         self.headless = headless
         self.driver = None

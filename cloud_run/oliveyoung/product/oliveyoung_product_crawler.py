@@ -4,7 +4,7 @@
 """
 import os
 from datetime import datetime, timezone
-from oliveyoung_scraper_module import OliveYoungProductScraper
+from oliveyoung_crawler_module import OliveYoungProductCrawler
 import logging
 
 logging.basicConfig(
@@ -26,7 +26,7 @@ def main():
         os.makedirs(data_dir)
     
     # 크롤러 초기화
-    crawler = OliveYoungProductScraper(headless=True)
+    crawler = OliveYoungProductCrawler(headless=True)
     
     try:
         logger.info(f"상품 목록 크롤링 시작... 카테고리: {category_name}")

@@ -18,7 +18,7 @@ pip install -r requirements.txt
 ## 사용법
 
 ```bash
-python oliveyoung_product_scraper.py
+python oliveyoung_product_crawler.py
 ```
 
 ## 주의사항

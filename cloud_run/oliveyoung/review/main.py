@@ -8,7 +8,7 @@ import sys
 import json
 import logging
 from datetime import datetime, timezone
-from oliveyoung_review_scraper_module import OliveYoungReviewScraper
+from oliveyoung_review_crawler_module import OliveYoungReviewCrawler
 from gcs_uploader import GCSUploader
 
 # 로깅 설정
@@ -27,14 +27,14 @@ def scrape_reviews(product_id: str, product_url: str, max_pages: int = 1):
         logger.info(f"🟢 Start scraping: product_id={product_id}, max_pages={max_pages}")
         logger.info(f"URL: {product_url}")
 
-        scraper = OliveYoungReviewScraper()
+        crawler = OliveYoungReviewCrawler()
 
         try:
             crawling_started_at = datetime.now(timezone.utc).isoformat()
             crawling_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
             # 리뷰 크롤링
-            reviews, category_name = scraper.extract_reviews_with_pagination(product_url, max_pages)
+            reviews, category_name = crawler.extract_reviews_with_pagination(product_url, max_pages)
 
             if not reviews:
                 logger.warning(f"No reviews found for product_id={product_id}")
@@ -84,7 +84,7 @@ def scrape_reviews(product_id: str, product_url: str, max_pages: int = 1):
             }
 
         finally:
-            scraper.close()
+            crawler.close()
 
     except Exception as e:
         logger.error(f"Error during scraping: {str(e)}", exc_info=True)
