@@ -1,0 +1,6 @@
+pyspark==3.3.4
+pandas==1.5.3
+transformers==4.36.2
+torch==2.0.1
+pyarrow==10.0.1
+huggingface-hub==0.20.3
