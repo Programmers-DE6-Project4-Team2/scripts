@@ -1,0 +1,62 @@
+# Git 관련
+.git
+.gitignore
+
+# Python 관련
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# 개발 환경
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# 데이터 파일
+data/
+logs/
+*.csv
+*.json
+*.xlsx
+
+# 환경 설정 파일
+.env
+.env.local
+.env.production
+.env.development
+
+# GCS 인증 키 파일들
+gcs_musinsa_credential.json
+credentials/
+keys/
+secrets/
+
+# Docker 관련
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 기타 민감한 파일들
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
